@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VocaLearn – Học từ vựng tiếng Anh thông minh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700;12..96,800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-icon">⚡</span>
+    <span class="logo-text">VocaLearn</span>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="#" class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span>Trang chủ</span></a></li>
+    <li><a href="#" class="nav-item" data-page="sets"><span class="nav-icon">📚</span><span>Bộ thẻ của tôi</span></a></li>
+    <li><a href="#" class="nav-item" data-page="study"><span class="nav-icon">🎴</span><span>Học ngay</span></a></li>
+    <li><a href="#" class="nav-item" data-page="quiz"><span class="nav-icon">🧠</span><span>Kiểm tra</span></a></li>
+    <li><a href="#" class="nav-item" data-page="mixedquiz"><span class="nav-icon">🎯</span><span>Kiểm tra tổng hợp</span></a></li>
+    <li><a href="#" class="nav-item" data-page="stats"><span class="nav-icon">📊</span><span>Thống kê</span></a></li>
+    <li><a href="#" class="nav-item" data-page="chat"><span class="nav-icon">💬</span><span>Trợ lý AI</span></a></li>
+    <li><a href="#" class="nav-item" data-page="trash"><span class="nav-icon">🗑️</span><span>Thùng rác</span><span class="trash-badge" id="trashBadge" style="display:none"></span></a></li>
+  </ul>
+  <div class="sidebar-footer">
+    <!-- 1. Streak -->
+    <div class="streak-badge">
+      <span>🔥</span>
+      <span class="streak-count" id="streakCount">0</span>
+      <span>ngày liên tiếp</span>
+    </div>
+
+    <!-- 2. Theme toggle -->
+    <button class="theme-toggle" id="themeToggleBtn" title="Chuyển giao diện sáng/tối">
+      <div class="theme-toggle-slider" id="themeSlider"></div>
+      <div class="theme-toggle-option t-dark active" id="themeOptDark">
+        <span class="t-icon">🌙</span><span>Tối</span>
+      </div>
+      <div class="theme-toggle-option t-light" id="themeOptLight">
+        <span class="t-icon">☀️</span><span>Sáng</span>
+      </div>
+    </button>
+
+    <!-- 3. Firebase Sync -->
+    <div class="autosave-panel">
+      <div class="autosave-status" id="autosaveStatus">
+        <span>☁️</span><span>Chưa đăng nhập</span>
+      </div>
+      <div class="autosave-btns">
+        <button class="btn-autosave-on" id="btnFirebaseLogin" title="Đăng nhập để đồng bộ dữ liệu">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Đăng nhập Google
+        </button>
+        <button class="btn-autosave-off" id="btnFirebaseLogout" title="Đăng xuất" style="display:none">⏹ Đăng xuất</button>
+      </div>
+      <div class="autosave-note" id="autosaveNote">Đồng bộ dữ liệu trên mọi thiết bị</div>
+    </div>
+  </div>
+</nav>
+
+<!-- MOBILE TOP BAR -->
+<div class="topbar">
+  <button class="menu-btn" id="menuBtn">☰</button>
+  <span class="topbar-title">⚡ VocaLearn</span>
+  <div></div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="main" id="mainContent">
+
+  <!-- PAGE: HOME -->
+  <div class="page active" id="page-home">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title" id="homeGreeting">Xin chào! 👋</h1>
+        <p class="page-subtitle">Hôm nay bạn muốn học gì?</p>
+      </div>
+      <button class="btn-ghost btn-sm" id="btnSetName" title="Đặt tên của bạn">✏️ Đặt tên</button>
+    </div>
+
+    <div class="quick-stats">
+      <div class="stat-card accent-yellow">
+        <div class="stat-num" id="totalCards">0</div>
+        <div class="stat-label">Tổng thẻ</div>
+      </div>
+      <div class="stat-card accent-green">
+        <div class="stat-num" id="masteredCards">0</div>
+        <div class="stat-label">Đã thuộc</div>
+      </div>
+      <div class="stat-card accent-blue">
+        <div class="stat-num" id="todayStudied">0</div>
+        <div class="stat-label">Học hôm nay</div>
+      </div>
+      <div class="stat-card accent-pink" style="cursor:default">
+        <div class="stat-num" id="dueReview">0</div>
+        <div class="stat-label">Cần ôn tập hôm nay</div>
+        <div class="stat-hint" id="dueHint"></div>
+      </div>
+    </div>
+
+    <!-- Banner ôn tập — chỉ hiện khi có thẻ cần ôn -->
+    <div class="review-banner" id="reviewBanner" style="display:none">
+      <div class="review-banner-left">
+        <div class="review-banner-icon">⏰</div>
+        <div>
+          <div class="review-banner-title">Đã đến lúc ôn tập!</div>
+          <div class="review-banner-sub" id="reviewBannerSub">Bạn có thẻ cần ôn để không bị quên.</div>
+        </div>
+      </div>
+      <button class="btn-review-now" id="btnReviewNow">Ôn tập ngay →</button>
+    </div>
+
+    <div class="section-title">Bộ thẻ mẫu — Tiếng Anh lớp 6</div>
+    <div class="sets-grid" id="sampleSets"></div>
+
+    <div class="section-title" style="margin-top:2rem">Bộ thẻ của tôi</div>
+    <div class="sets-grid" id="mySetsHome"></div>
+
+    <button class="fab" id="fabCreate" title="Tạo bộ thẻ mới">+</button>
+  </div>
+
+  <!-- PAGE: REVIEW SESSION -->
+  <div class="page" id="page-review">
+    <div class="study-header">
+      <button class="btn-ghost" id="btnExitReview">← Thoát</button>
+      <div class="study-progress-wrap">
+        <div class="study-progress-bar"><div class="study-progress-fill" id="reviewProgressFill"></div></div>
+        <span id="reviewProgressText">0 / 0</span>
+      </div>
+      <div class="quiz-score-badge">Điểm: <span id="reviewScore">0</span></div>
+    </div>
+    <div class="review-header-badge">
+      <span>⏰ Ôn tập theo lịch SR</span>
+    </div>
+    <div class="quiz-area" id="reviewQuizArea">
+      <div class="quiz-question">
+        <div class="quiz-q-label" id="reviewSetLabel">Ôn tập</div>
+        <div class="quiz-q-word" id="reviewWord"></div>
+        <div class="quiz-q-phonetic" id="reviewPhonetic"></div>
+        <button class="speak-btn-quiz" onclick="speakWord(document.getElementById('reviewWord').textContent)">🔊 Nghe phát âm</button>
+      </div>
+      <div class="quiz-options" id="reviewOptions"></div>
+      <div class="quiz-feedback" id="reviewFeedback" style="display:none"></div>
+      <button class="btn-primary" id="btnNextReview" style="display:none;margin:1rem auto">Câu tiếp →</button>
+    </div>
+    <div class="study-done" id="reviewDone" style="display:none">
+      <div class="done-icon" id="reviewDoneIcon">🏆</div>
+      <h2 id="reviewDoneTitle">Ôn tập hoàn thành!</h2>
+      <div class="quiz-result-score" id="reviewResultScore"></div>
+      <div class="done-stats">
+        <div class="done-stat correct-stat"><span id="reviewCorrect">0</span><small>Đúng</small></div>
+        <div class="done-stat wrong-stat"><span id="reviewWrong">0</span><small>Sai</small></div>
+      </div>
+      <div class="mixed-wrong-list" id="reviewWrongList"></div>
+      <button class="btn-primary" id="btnReviewAgain">Ôn lại các từ sai</button>
+      <button class="btn-ghost" onclick="exitReview()">Về trang chủ</button>
+    </div>
+  </div>
+
+  <!-- PAGE: MY SETS -->
+  <div class="page" id="page-sets">
+    <div class="page-header">
+      <h1 class="page-title">Bộ thẻ của tôi 📚</h1>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+        <button class="btn-ghost btn-sm" id="btnImport" title="Nhập dữ liệu">📥 Nhập</button>
+        <button class="btn-ghost btn-sm" id="btnExport" title="Xuất dữ liệu">📤 Xuất</button>
+        <button class="btn-ai" id="btnCreateAI">✨ Tạo bằng AI</button>
+        <button class="btn-primary" id="btnCreateSet">+ Tạo thủ công</button>
+      </div>
+    </div>
+    <input type="file" id="importFileInput" accept=".json" style="display:none">
+    <div class="sets-grid" id="mySetsPage"></div>
+    <div class="empty-state" id="emptySets" style="display:none">
+      <div class="empty-icon">🃏</div>
+      <p>Chưa có bộ thẻ nào.<br>Hãy tạo bộ thẻ đầu tiên!</p>
+      <button class="btn-primary" onclick="openCreateModal()">Tạo ngay</button>
+    </div>
+  </div>
+
+  <!-- PAGE: STUDY -->
+  <div class="page" id="page-study">
+    <div class="page-header">
+      <h1 class="page-title">Học thẻ 🎴</h1>
+    </div>
+    <div id="studySelectSet">
+      <p class="page-subtitle">Chọn bộ thẻ để bắt đầu:</p>
+      <div class="sets-grid" id="studySets"></div>
+    </div>
+    <div id="studySession" style="display:none">
+      <div class="study-header">
+        <button class="btn-ghost" id="btnExitStudy">← Thoát</button>
+        <div class="study-progress-wrap">
+          <div class="study-progress-bar"><div class="study-progress-fill" id="studyProgressFill"></div></div>
+          <span id="studyProgressText">0 / 0</span>
+        </div>
+        <div class="study-algo-badge" id="algoInfo">🧠 Spaced Repetition</div>
+      </div>
+      <div class="flashcard-area">
+        <div class="flashcard" id="flashcard">
+          <div class="flashcard-inner" id="flashcardInner">
+            <div class="flashcard-front">
+              <div class="card-tag" id="cardTag">EN</div>
+              <button class="speak-btn" id="speakFront" title="Nghe phát âm" onclick="event.stopPropagation();speakWord(document.getElementById('cardFrontWord').textContent)">🔊</button>
+              <div class="card-word" id="cardFrontWord"></div>
+              <div class="card-phonetic" id="cardPhonetic"></div>
+              <div class="flip-hint">Nhấn để lật thẻ ↻</div>
+            </div>
+            <div class="flashcard-back">
+              <div class="card-tag back-tag">VI</div>
+              <button class="speak-btn speak-btn-back" title="Nghe lại" onclick="event.stopPropagation();speakWord(document.getElementById('cardFrontWord').textContent)">🔊</button>
+              <div class="card-meaning" id="cardMeaning"></div>
+              <div class="card-example" id="cardExample"></div>
+            </div>
+          </div>
+        </div>
+        <div class="rating-buttons" id="ratingBtns" style="display:none">
+          <button class="rate-btn rate-hard" onclick="rateCard(1)">😓 Khó<br><small>Ôn lại sớm</small></button>
+          <button class="rate-btn rate-ok" onclick="rateCard(3)">🤔 Được<br><small>2 ngày nữa</small></button>
+          <button class="rate-btn rate-easy" onclick="rateCard(5)">😊 Dễ<br><small>5 ngày nữa</small></button>
+        </div>
+        <div class="show-answer-wrap" id="showAnswerWrap">
+          <button class="btn-primary btn-large" id="btnShowAnswer">Xem đáp án</button>
+        </div>
+      </div>
+      <div class="study-done" id="studyDone" style="display:none">
+        <div class="done-icon">🎉</div>
+        <h2>Hoàn thành buổi học!</h2>
+        <div class="done-stats">
+          <div class="done-stat"><span id="doneEasy">0</span><small>Dễ</small></div>
+          <div class="done-stat"><span id="doneOk">0</span><small>Được</small></div>
+          <div class="done-stat"><span id="doneHard">0</span><small>Khó</small></div>
+        </div>
+        <button class="btn-primary" id="btnStudyAgain">Học lại</button>
+        <button class="btn-ghost" onclick="exitStudy()">Về trang chủ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: QUIZ -->
+  <div class="page" id="page-quiz">
+    <div class="page-header">
+      <h1 class="page-title">Kiểm tra 🧠</h1>
+    </div>
+    <div id="quizSelectSet">
+      <p class="page-subtitle">Chọn bộ thẻ để kiểm tra:</p>
+      <div class="sets-grid" id="quizSets"></div>
+    </div>
+    <!-- Mode Selection Modal moved to top-level -->
+
+    <div id="quizSession" style="display:none">
+      <div class="study-header">
+        <button class="btn-ghost" id="btnExitQuiz">← Thoát</button>
+        <div class="study-progress-wrap">
+          <div class="study-progress-bar"><div class="study-progress-fill" id="quizProgressFill"></div></div>
+          <span id="quizProgressText">0 / 0</span>
+        </div>
+        <div class="quiz-score-badge">Điểm: <span id="quizScore">0</span></div>
+      </div>
+      <div class="quiz-area">
+        <div class="quiz-question">
+          <div class="quiz-q-label" id="quizQLabel">Từ tiếng Anh này nghĩa là gì?</div>
+          <div class="quiz-q-word" id="quizWord"></div>
+          <div class="quiz-q-phonetic" id="quizPhonetic"></div>
+          <button class="speak-btn speak-btn-quiz" id="speakQuiz" title="Nghe phát âm" onclick="speakWord(document.getElementById('quizWord').textContent)">🔊 Nghe phát âm</button>
+        </div>
+        <!-- Trắc nghiệm options -->
+        <div class="quiz-options" id="quizOptions"></div>
+        <!-- Tự luận input -->
+        <div id="quizEssayArea" style="display:none">
+          <div class="essay-input-wrap">
+            <input type="text" id="quizEssayInput" class="essay-input" placeholder="Nhập câu trả lời của bạn..." autocomplete="off" autocorrect="off" spellcheck="false" />
+            <button class="btn-primary" id="btnSubmitEssay">Xác nhận ✓</button>
+          </div>
+        </div>
+        <div class="quiz-feedback" id="quizFeedback" style="display:none"></div>
+        <button class="btn-primary" id="btnNextQuiz" style="display:none;margin:1rem auto;display:none">Câu tiếp →</button>
+      </div>
+      <div class="study-done" id="quizDone" style="display:none">
+        <div class="done-icon" id="quizDoneIcon">🏆</div>
+        <h2>Kết quả kiểm tra</h2>
+        <div class="quiz-result-score" id="quizResultScore"></div>
+        <div class="done-stats">
+          <div class="done-stat correct-stat"><span id="quizCorrect">0</span><small>Đúng</small></div>
+          <div class="done-stat wrong-stat"><span id="quizWrong">0</span><small>Sai</small></div>
+        </div>
+        <button class="btn-primary" id="btnQuizAgain">Làm lại</button>
+        <button class="btn-ghost" onclick="exitQuiz()">Về trang chủ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: MIXED QUIZ -->
+  <div class="page" id="page-mixedquiz">
+    <div class="page-header">
+      <h1 class="page-title">Kiểm tra tổng hợp 🎯</h1>
+    </div>
+    <div id="mixedQuizConfig">
+      <p class="page-subtitle">Chọn các bộ thẻ muốn tổng hợp:</p>
+      <div class="mixed-sets-list" id="mixedSetsList"></div>
+      <div class="mixed-config-row">
+        <div class="mixed-config-item">
+          <label class="form-label">Hình thức kiểm tra</label>
+          <select class="form-input" id="mixedQuizMode" style="width:160px">
+            <option value="multiple">Trắc nghiệm</option>
+            <option value="essay">Tự luận</option>
+            <option value="random">Ngẫu nhiên</option>
+          </select>
+        </div>
+        <div class="mixed-config-item">
+          <label class="form-label">Số câu hỏi</label>
+          <select class="form-input" id="mixedQuizCount" style="width:120px">
+            <option value="10">10 câu</option>
+            <option value="15" selected>15 câu</option>
+            <option value="20">20 câu</option>
+            <option value="30">30 câu</option>
+          </select>
+        </div>
+        <div class="mixed-config-item" style="align-self:flex-end">
+          <button class="btn-primary btn-large" id="btnStartMixedQuiz">🚀 Bắt đầu kiểm tra</button>
+        </div>
+      </div>
+      <div class="mixed-preview" id="mixedPreview"></div>
+    </div>
+    <div id="mixedQuizSession" style="display:none">
+      <div class="study-header">
+        <button class="btn-ghost" id="btnExitMixedQuiz">← Thoát</button>
+        <div class="study-progress-wrap">
+          <div class="study-progress-bar"><div class="study-progress-fill" id="mixedProgressFill"></div></div>
+          <span id="mixedProgressText">0 / 0</span>
+        </div>
+        <div class="quiz-score-badge">Điểm: <span id="mixedScore">0</span></div>
+      </div>
+      <div class="quiz-area">
+        <div class="quiz-question">
+          <div class="quiz-q-label" id="mixedSetLabel">Tổng hợp</div>
+          <div class="quiz-q-word" id="mixedWord"></div>
+          <div class="quiz-q-phonetic" id="mixedPhonetic"></div>
+          <button class="speak-btn speak-btn-quiz" id="speakMixed" title="Nghe phát âm" onclick="speakWord(document.getElementById('mixedWord').textContent)">🔊 Nghe phát âm</button>
+        </div>
+        <div class="quiz-options" id="mixedOptions"></div>
+        <div id="mixedEssayArea" style="display:none">
+          <div class="essay-input-wrap">
+            <input type="text" id="mixedEssayInput" class="essay-input" placeholder="Nhập câu trả lời của bạn..." autocomplete="off" autocorrect="off" spellcheck="false" />
+            <button class="btn-primary" id="btnSubmitMixedEssay">Xác nhận ✓</button>
+          </div>
+        </div>
+        <div class="quiz-feedback" id="mixedFeedback" style="display:none"></div>
+        <button class="btn-primary" id="btnNextMixed" style="display:none;margin:1rem auto">Câu tiếp →</button>
+      </div>
+      <div class="study-done" id="mixedDone" style="display:none">
+        <div class="done-icon" id="mixedDoneIcon">🏆</div>
+        <h2>Kết quả kiểm tra tổng hợp</h2>
+        <div class="quiz-result-score" id="mixedResultScore"></div>
+        <div class="done-stats">
+          <div class="done-stat correct-stat"><span id="mixedCorrect">0</span><small>Đúng</small></div>
+          <div class="done-stat wrong-stat"><span id="mixedWrong">0</span><small>Sai</small></div>
+        </div>
+        <div class="mixed-wrong-list" id="mixedWrongList"></div>
+        <button class="btn-primary" id="btnMixedAgain">Làm lại</button>
+        <button class="btn-ghost" onclick="exitMixedQuiz()">Về trang chủ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: STATS -->
+  <div class="page" id="page-stats">
+    <div class="page-header">
+      <h1 class="page-title">Thống kê 📊</h1>
+    </div>
+    <div class="stats-grid">
+      <div class="stats-card stats-card-progress">
+        <h3>Tiến độ học tập</h3>
+        <div class="progress-rings" id="progressRings"></div>
+      </div>
+      <div class="stats-card stats-card-history">
+        <div class="chart-header">
+          <h3 id="chartTitle">Lịch sử ôn tập</h3>
+          <div class="chart-tabs">
+            <button class="chart-tab active" data-tab="7">7 ngày</button>
+            <button class="chart-tab" data-tab="30">30 ngày</button>
+            <button class="chart-tab" data-tab="month">Theo tháng</button>
+          </div>
+        </div>
+        <div class="chart-month-select" id="chartMonthSelect" style="display:none">
+          <select id="monthPickerMonth"></select>
+          <select id="monthPickerYear"></select>
+          <button id="monthPickerViewBtn">Xem</button>
+        </div>
+        <div class="bar-chart" id="barChart"></div>
+        <div class="chart-meta" id="chartMeta"></div>
+      </div>
+      <div class="stats-card full-width">
+        <h3>Từ cần ôn tập sớm nhất</h3>
+        <div id="dueWordsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: CHAT -->
+  <div class="page" id="page-chat">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Trợ lý AI 💬</h1>
+        <p class="page-subtitle">Hỏi về từ vựng, ngữ pháp, hoặc cách học tiếng Anh hiệu quả</p>
+      </div>
+      <div class="model-status-bar" id="modelStatusBar">
+        <span class="model-status-label" id="modelStatusLabel">⏳ Chưa tải model</span>
+        <button class="btn-refresh-models" id="btnRefreshModels" title="Làm mới danh sách model">🔄</button>
+      </div>
+    </div>
+    <!-- API Key Setup -->
+    <div class="chat-apikey-bar" id="chatApiKeyBar">
+      <span class="chat-apikey-icon">🔑</span>
+      <div class="chat-apikey-info">
+        <strong>Nhập Gemini API Key để sử dụng trợ lý AI</strong>
+        <small>Lấy key miễn phí tại <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--blue)">aistudio.google.com</a></small>
+      </div>
+      <input type="password" class="chat-apikey-input" id="chatApiKeyInput" placeholder="AIza..." />
+      <button class="btn-primary" id="chatApiKeySaveBtn" style="white-space:nowrap">Lưu key</button>
+    </div>
+    <div class="chat-container">
+      <!-- Lịch sử hội thoại -->
+      <div class="chat-history-sidebar">
+        <button class="btn-new-chat" id="btnNewChat">✏️ Cuộc hội thoại mới</button>
+        <div class="chat-hist-label">Lịch sử</div>
+        <div class="chat-hist-list" id="chatHistList"></div>
+      </div>
+      <!-- Khu vực chat chính -->
+      <div class="chat-wrap">
+        <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-bar">
+        <!-- File preview area -->
+        <div class="chat-attach-preview" id="chatAttachPreview" style="display:none"></div>
+        <div class="chat-input-row">
+          <button class="chat-attach-btn" id="chatAttachBtn" title="Đính kèm file (ảnh, PDF, Word)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <input type="file" id="chatFileInput" accept="image/*,.pdf,.doc,.docx,.txt" style="display:none" multiple>
+          <textarea class="chat-input" id="chatInput" placeholder="Nhập câu hỏi của bạn..." rows="1"></textarea>
+          <button class="chat-send-btn" id="chatSendBtn" title="Gửi">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </div>
+        <div class="chat-attach-hint" id="chatAttachHint">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          Hỗ trợ: Ảnh (JPG/PNG/WEBP), PDF, Word (.docx), TXT
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+  <!-- PAGE: TRASH -->
+  <div class="page" id="page-trash">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Thùng rác 🗑️</h1>
+        <p class="page-subtitle">Các bộ thẻ đã xóa — khôi phục hoặc xóa vĩnh viễn</p>
+      </div>
+      <button class="btn-ghost btn-sm" id="btnEmptyTrash" onclick="emptyTrash()" style="display:none;color:var(--accent)">🗑 Xóa tất cả</button>
+    </div>
+    <div id="trashList" class="trash-list"></div>
+    <div class="empty-state" id="trashEmpty">
+      <div class="empty-icon">🗑️</div>
+      <p>Thùng rác trống.<br>Các bộ thẻ bị xóa sẽ xuất hiện ở đây.</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL: CREATE/EDIT SET -->
+<div class="modal-overlay" id="modalCreateSet">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Tạo bộ thẻ mới</h2>
+      <button class="modal-close" onclick="closeCreateModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label">Tên bộ thẻ</label>
+      <input type="text" class="form-input" id="setNameInput" placeholder="VD: Unit 1 – Greetings"/>
+      <label class="form-label">Màu sắc</label>
+      <div class="color-picker" id="colorPicker"></div>
+      <label class="form-label">Danh sách từ <small>(mỗi dòng: từ tiếng Anh | phiên âm | nghĩa | ví dụ)</small></label>
+      <textarea class="form-textarea" id="wordsInput" rows="10"
+        placeholder="hello | /həˈloʊ/ | xin chào | Hello! How are you?&#10;school | /skuːl/ | trường học | I go to school every day.&#10;book | /bʊk/ | quyển sách | I read a book."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeCreateModal()">Hủy</button>
+      <button class="btn-primary" id="btnSaveSet">Lưu bộ thẻ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SET DETAIL -->
+<div class="modal-overlay" id="modalSetDetail">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h2 id="detailSetName">Chi tiết bộ thẻ</h2>
+      <button class="modal-close" onclick="closeDetailModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-actions">
+        <button class="btn-primary" id="btnStudySet">🎴 Học ngay</button>
+        <button class="btn-secondary" id="btnQuizSet">🧠 Kiểm tra</button>
+        <button class="btn-ghost btn-edit" id="btnEditSet">✏️ Sửa</button>
+        <button class="btn-danger" id="btnDeleteSet">🗑 Xóa</button>
+      </div>
+      <div class="cards-table-wrap">
+        <table class="cards-table" id="cardsTable">
+          <thead><tr><th>#</th><th>Từ</th><th>Phiên âm</th><th>Nghĩa</th><th>Trạng thái</th><th>Phát âm</th></tr></thead>
+          <tbody id="cardsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: AI CREATE SET -->
+<div class="modal-overlay" id="modalAICreate">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h2>✨ Tạo bộ thẻ bằng AI</h2>
+      <button class="modal-close" onclick="closeAIModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="ai-tabs">
+        <button class="ai-tab active" data-tab="text">📝 Nhập chủ đề</button>
+        <button class="ai-tab" data-tab="image">🖼️ Từ ảnh</button>
+        <button class="ai-tab" data-tab="file">📄 Từ file văn bản</button>
+      </div>
+
+      <!-- API Key -->
+      <div class="ai-apikey-box">
+        <div class="ai-apikey-label">
+          🔑 Gemini API Key
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="apikey-link">Lấy miễn phí tại đây →</a>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <input type="password" class="form-input" id="geminiApiKey" placeholder="AIza..." style="flex:1;font-family:'DM Mono',monospace;font-size:0.85rem"/>
+          <button class="btn-ghost" style="padding:0.6rem 0.8rem;font-size:0.85rem" onclick="toggleKeyVisibility()" id="btnToggleKey">👁</button>
+        </div>
+        <div class="apikey-hint">Key chỉ lưu trên máy bạn, không gửi đi đâu khác ngoài Google.</div>
+      </div>
+
+      <!-- Tab: Text -->
+      <div class="ai-tab-content active" id="aiTab-text">
+        <label class="form-label">Chủ đề hoặc danh sách từ muốn học</label>
+        <textarea class="form-textarea" id="aiTopicInput" rows="4"
+          placeholder="VD: 10 từ vựng tiếng Anh về động vật cho học sinh lớp 6&#10;hoặc: apple, banana, orange, grape, watermelon&#10;hoặc: các từ về thời tiết trong tiếng Anh"></textarea>
+        <label class="form-label" style="margin-top:1rem">Số lượng từ muốn tạo</label>
+        <select class="form-input" id="aiWordCount" style="width:140px">
+          <option value="8">8 từ</option>
+          <option value="10" selected>10 từ</option>
+          <option value="15">15 từ</option>
+          <option value="20">20 từ</option>
+        </select>
+      </div>
+
+      <!-- Tab: Image -->
+      <div class="ai-tab-content" id="aiTab-image">
+        <label class="form-label">Tải lên ảnh (ảnh bài học, trang sách, ghi chú...)</label>
+        <div class="ai-upload-zone" id="imageUploadZone">
+          <div class="upload-icon">🖼️</div>
+          <p>Kéo thả ảnh vào đây hoặc <span class="upload-link">nhấn để chọn</span></p>
+          <p class="upload-hint">Hỗ trợ: JPG, PNG, WEBP (tối đa 5MB)</p>
+          <input type="file" id="imageFileInput" accept="image/*" style="display:none">
+        </div>
+        <div class="ai-preview-img" id="imagePreview" style="display:none">
+          <img id="previewImg" src="" alt="preview" style="max-width:100%;max-height:200px;border-radius:8px">
+          <button class="btn-ghost" style="margin-top:0.5rem" onclick="clearImageUpload()">✕ Xóa ảnh</button>
+        </div>
+      </div>
+
+      <!-- Tab: File -->
+      <div class="ai-tab-content" id="aiTab-file">
+        <label class="form-label">Tải lên file văn bản</label>
+        <div class="ai-upload-zone" id="fileUploadZone">
+          <div class="upload-icon">📄</div>
+          <p>Kéo thả file vào đây hoặc <span class="upload-link">nhấn để chọn</span></p>
+          <p class="upload-hint">Hỗ trợ: TXT (tối đa 2MB)</p>
+          <input type="file" id="textFileInput" accept=".txt" style="display:none">
+        </div>
+        <div class="ai-file-info" id="fileInfo" style="display:none">
+          <span class="file-icon">📄</span>
+          <span id="fileName"></span>
+          <button class="btn-ghost" style="padding:0.3rem 0.6rem;font-size:0.8rem" onclick="clearFileUpload()">✕</button>
+        </div>
+        <label class="form-label" style="margin-top:1rem">Số lượng từ muốn trích xuất</label>
+        <select class="form-input" id="aiFileWordCount" style="width:140px">
+          <option value="8">8 từ</option>
+          <option value="10" selected>10 từ</option>
+          <option value="15">15 từ</option>
+          <option value="20">20 từ</option>
+        </select>
+      </div>
+
+      <!-- AI Result -->
+      <div class="ai-result" id="aiResult" style="display:none">
+        <div class="ai-result-header">
+          <span>✅ AI đã tạo xong! Kiểm tra và chỉnh sửa nếu cần:</span>
+          <button class="btn-ghost" style="font-size:0.8rem;padding:0.3rem 0.7rem" onclick="clearAIResult()">↩ Làm lại</button>
+        </div>
+        <label class="form-label">Tên bộ thẻ</label>
+        <input type="text" class="form-input" id="aiSetName" placeholder="Tên bộ thẻ"/>
+        <label class="form-label">Màu sắc</label>
+        <div class="color-picker" id="aiColorPicker"></div>
+        <label class="form-label">Danh sách từ (có thể chỉnh sửa)</label>
+        <textarea class="form-textarea" id="aiWordsOutput" rows="10"></textarea>
+      </div>
+
+      <!-- AI Loading -->
+      <div class="ai-loading" id="aiLoading" style="display:none">
+        <div class="ai-spinner"></div>
+        <p id="aiLoadingText">AI đang tạo từ vựng...</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeAIModal()">Hủy</button>
+      <button class="btn-ai" id="btnGenerateAI">✨ Tạo bằng AI</button>
+      <button class="btn-primary" id="btnSaveAISet" style="display:none">💾 Lưu bộ thẻ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: KẾT QUẢ BÀI KIỂM TRA -->
+<div class="modal-overlay" id="modalResult">
+  <div class="modal" style="max-width:440px;text-align:center">
+    <div class="modal-body" style="padding:2.5rem 2rem">
+      <div style="font-size:3.5rem;margin-bottom:0.5rem" id="resultIcon">🏆</div>
+      <h2 style="font-size:1.3rem;margin-bottom:0.5rem" id="resultTitle">Kết quả</h2>
+      <div class="quiz-result-score" id="resultScore" style="font-size:3rem;margin:0.5rem 0"></div>
+      <div class="done-stats" style="justify-content:center;margin:1rem 0 1.5rem">
+        <div class="done-stat correct-stat"><span id="resultCorrect">0</span><small>Đúng</small></div>
+        <div class="done-stat wrong-stat" style="margin-left:2rem"><span id="resultWrong">0</span><small>Sai</small></div>
+      </div>
+      <div class="mixed-wrong-list" id="resultWrongList"></div>
+      <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.5rem;flex-wrap:wrap">
+        <button class="btn-ghost" id="resultBtnHome">🏠 Về trang chủ</button>
+        <button class="btn-primary" id="resultBtnAgain">🔄 Làm lại</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM NOTIFICATION MODAL -->
+<div class="notif-overlay" id="notifOverlay">
+  <div class="notif-box" id="notifBox">
+    <div class="notif-icon" id="notifIcon">⚠️</div>
+    <div class="notif-msg" id="notifMsg"></div>
+    <div class="notif-actions" id="notifActions"></div>
+  </div>
+</div>
+
+<!-- QUIZ MODE MODAL (top-level overlay, works from any page) -->
+<div id="quizModeModal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center">
+  <div class="quiz-mode-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)" id="btnCancelModeBackdrop"></div>
+  <div class="quiz-mode-card" style="position:relative;z-index:1">
+    <div class="quiz-mode-title">Chọn hình thức kiểm tra</div>
+    <div class="quiz-mode-subtitle">Bạn muốn làm bài theo kiểu nào?</div>
+    <div class="quiz-mode-options">
+      <button class="quiz-mode-btn" id="btnModeMultiple">
+        <span class="quiz-mode-icon">🔤</span>
+        <span class="quiz-mode-name">Trắc nghiệm</span>
+        <span class="quiz-mode-desc">Chọn đáp án trong 4 lựa chọn</span>
+      </button>
+      <button class="quiz-mode-btn" id="btnModeEssay">
+        <span class="quiz-mode-icon">✍️</span>
+        <span class="quiz-mode-name">Tự luận</span>
+        <span class="quiz-mode-desc">Tự nhập nghĩa của từ</span>
+      </button>
+    </div>
+    <button class="btn-ghost" id="btnCancelMode" style="margin-top:0.5rem">Huỷ</button>
+  </div>
+</div>
+
+<script src="data/sample-sets.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/spaced-repetition.js"></script>
+<script src="js/app.js"></script>
+<!-- Firebase – phải để type="module" và đặt SAU app.js -->
+<script type="module" src="js/firebase.js"></script>
+</body>
+</html>
