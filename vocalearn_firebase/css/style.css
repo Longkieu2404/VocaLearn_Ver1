@@ -972,61 +972,99 @@ body {
 .cards-table tr:hover td { background: rgba(255,255,255,0.02); }
 
 /* ---- Mobile card layout cho bảng từ ---- */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .cards-table-wrap { overflow-x: unset; }
-  .cards-table,
-  .cards-table thead,
-  .cards-table tbody,
-  .cards-table th,
-  .cards-table td,
-  .cards-table tr {
-    display: block;
-  }
   .cards-table thead { display: none; }
+  .cards-table,
+  .cards-table tbody { display: block; }
+
+  /* Mỗi row = 1 card */
   .cards-table tbody tr {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 0.5rem;
+    row-gap: 0.3rem;
     border: 1px solid var(--border);
     border-radius: 10px;
-    margin-bottom: 0.6rem;
-    padding: 0.6rem 0.75rem;
-    background: var(--surface);
-    position: relative;
+    margin-bottom: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    background: var(--surface, var(--bg2));
   }
+
+  /* Ẩn tất cả td mặc định */
   .cards-table td {
-    padding: 0.2rem 0;
-    border-bottom: none;
-    font-size: 0.85rem;
+    display: none !important;
+    border: none !important;
+    padding: 0 !important;
+    vertical-align: middle;
   }
-  /* Số thứ tự */
-  .cards-table td:nth-child(1) {
-    position: absolute; top: 0.55rem; right: 0.75rem;
-    font-size: 0.72rem; color: var(--text3);
-    width: auto;
+
+  /* === DÒNG 1: STT + Từ + Phiên âm === */
+  /* chiếm cả 2 cột, dùng flex ngang */
+  .cards-table td:nth-child(1),
+  .cards-table td:nth-child(2),
+  .cards-table td:nth-child(3) {
+    display: inline-flex !important;
+    align-items: baseline;
   }
-  /* Từ */
+
+  /* Wrapper dòng 1 — STT · Từ · Phiên âm */
   .cards-table td:nth-child(2) {
-    font-size: 1rem; padding-bottom: 0.15rem;
-    padding-right: 1.8rem;
+    grid-column: 1 / 3;
+    grid-row: 1;
+    display: flex !important;
+    align-items: baseline;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
+
+  /* STT — ẩn bằng cách đặt position absolute trong td:nth-child(2) */
+  .cards-table td:nth-child(1) { display: none !important; }
+
+  /* Từ tiếng Anh — trong td:nth-child(2) chính là strong */
+  .cards-table td:nth-child(2) strong {
+    font-size: 0.95rem;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
   /* Phiên âm */
   .cards-table td:nth-child(3) {
-    font-size: 0.78rem; color: var(--text2);
+    grid-column: 1 / 3;
+    grid-row: 1;
+    display: none !important; /* merged into row via JS or handled below */
   }
-  /* Nghĩa */
+
+  /* Nghĩa — dòng 2 cột 1 */
   .cards-table td:nth-child(4) {
-    font-size: 0.88rem; color: var(--text);
-    padding-top: 0.1rem;
-  }
-  /* Trạng thái + Phát âm: cùng hàng */
-  .cards-table td:nth-child(5),
-  .cards-table td:nth-child(6) {
-    display: inline-flex;
+    grid-column: 1;
+    grid-row: 2;
+    display: flex !important;
     align-items: center;
-    padding-top: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    min-width: 0;
   }
-  .cards-table td:nth-child(5) { flex: 1; }
-  .cards-table td:nth-child(6) { text-align: right; justify-content: flex-end; }
+
+  /* Trạng thái — dòng 3 cột 1 */
+  .cards-table td:nth-child(5) {
+    grid-column: 1;
+    grid-row: 3;
+    display: inline-flex !important;
+    align-items: center;
+  }
+
+  /* Nút loa — dòng 3 cột 2 */
+  .cards-table td:nth-child(6) {
+    grid-column: 2;
+    grid-row: 3;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: flex-end;
+  }
 }
 
 .status-badge {
@@ -2439,4 +2477,75 @@ body {
 [data-theme="light"] pre {
   background: var(--bg3);
   color: var(--text);
+}
+
+/* ============================================================
+   VOCAB CARD ROW — mobile list layout cho bộ thẻ
+   ============================================================ */
+.cards-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.vocab-card-row {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface, var(--bg2));
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Dòng 1: STT · Từ · Phiên âm · Nghĩa */
+.vcr-top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.vcr-num {
+  font-size: 0.68rem;
+  color: var(--text3);
+  flex-shrink: 0;
+  min-width: 1.2rem;
+}
+
+.vcr-word {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.vcr-phonetic {
+  font-size: 0.74rem;
+  color: var(--text2);
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.vcr-meaning {
+  font-size: 0.85rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dòng 2: Trạng thái · Nút loa */
+.vcr-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }

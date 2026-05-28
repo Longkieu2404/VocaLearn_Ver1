@@ -408,22 +408,52 @@ function openDetailModal(setId) {
   if (!set) return;
   document.getElementById('detailSetName').textContent = set.name;
   const prog = getProgress();
-  const tbody = document.getElementById('cardsTableBody');
-  tbody.innerHTML = '';
-  set.cards.forEach((c, i) => {
-    const p = prog[c.id];
-    const status = p ? p.status : 'new';
-    const labelMap = { new: 'Chưa học', learning: 'Đang học', mastered: 'Đã thuộc' };
-    const clsMap = { new: 'status-new', learning: 'status-learning', mastered: 'status-mastered' };
-    tbody.innerHTML += `<tr>
-      <td>${i+1}</td>
-      <td><strong>${c.word}</strong></td>
-      <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--text2)">${c.phonetic || ''}</td>
-      <td>${c.meaning}</td>
-      <td><span class="status-badge ${clsMap[status]}">${labelMap[status]}</span></td>
-      <td><button class="speak-btn-table" onclick="speakWord('${c.word.replace(/'/g, "\\'")}')">🔊</button></td>
-    </tr>`;
-  });
+  const labelMap = { new: 'Chưa học', learning: 'Đang học', mastered: 'Đã thuộc' };
+  const clsMap = { new: 'status-new', learning: 'status-learning', mastered: 'status-mastered' };
+  const wrap = document.querySelector('.cards-table-wrap');
+
+  if (window.innerWidth <= 768) {
+    // Mobile: card list layout
+    wrap.innerHTML = '<div class="cards-mobile-list" id="cardsMobileList"></div>';
+    const list = document.getElementById('cardsMobileList');
+    set.cards.forEach((c, i) => {
+      const p = prog[c.id];
+      const status = p ? p.status : 'new';
+      const card = document.createElement('div');
+      card.className = 'vocab-card-row';
+      card.innerHTML = `
+        <div class="vcr-top">
+          <span class="vcr-num">${i+1}</span>
+          <strong class="vcr-word">${c.word}</strong>
+          <span class="vcr-phonetic">${c.phonetic || ''}</span>
+          <span class="vcr-meaning">${c.meaning}</span>
+        </div>
+        <div class="vcr-bottom">
+          <span class="status-badge ${clsMap[status]}">${labelMap[status]}</span>
+          <button class="speak-btn-table" onclick="speakWord('${c.word.replace(/'/g, "\\'")}')">🔊</button>
+        </div>`;
+      list.appendChild(card);
+    });
+  } else {
+    // Desktop: table layout
+    wrap.innerHTML = `<table class="cards-table" id="cardsTable">
+      <thead><tr><th>#</th><th>Từ</th><th>Phiên âm</th><th>Nghĩa</th><th>Trạng thái</th><th>Phát âm</th></tr></thead>
+      <tbody id="cardsTableBody"></tbody>
+    </table>`;
+    const tbody = document.getElementById('cardsTableBody');
+    set.cards.forEach((c, i) => {
+      const p = prog[c.id];
+      const status = p ? p.status : 'new';
+      tbody.innerHTML += `<tr>
+        <td>${i+1}</td>
+        <td><strong>${c.word}</strong></td>
+        <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--text2)">${c.phonetic || ''}</td>
+        <td>${c.meaning}</td>
+        <td><span class="status-badge ${clsMap[status]}">${labelMap[status]}</span></td>
+        <td><button class="speak-btn-table" onclick="speakWord('${c.word.replace(/'/g, "\\'")}')">🔊</button></td>
+      </tr>`;
+    });
+  }
 
   // Buttons
   document.getElementById('btnStudySet').onclick = () => { closeDetailModal(); startStudy(setId); };
