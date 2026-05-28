@@ -49,7 +49,10 @@ const FirebaseAuth = {
   getUser() { return auth.currentUser; },
 
   onStateChange(callback) {
-    return onAuthStateChanged(auth, callback);
+    return onAuthStateChanged(auth, (user) => {
+      console.log('[VocaLearn] onAuthStateChanged:', user ? ('logged in: ' + user.email) : 'logged out');
+      callback(user);
+    });
   }
 };
 
@@ -145,58 +148,69 @@ const FirebaseSync = {
   async pull() {
     const ref  = this._userDocRef();
     const user = auth.currentUser;
-    if (!ref || !user) return false;
+    console.log('[VocaLearn] pull() bắt đầu. user:', user?.email, '| uid:', user?.uid);
+    if (!ref || !user) {
+      console.warn('[VocaLearn] pull() hủy: không có ref hoặc user');
+      return false;
+    }
 
-    // Dừng listener cũ ngay — tránh snapshot cache từ IndexedDB can thiệp trong lúc pull
     this.stopListening();
     this._isPulling = true;
 
-    const ownerUid            = localStorage.getItem('vocalearn_owner_uid');
-    const isFirstLoginOnDevice = !ownerUid; // Chưa từng đăng nhập trên thiết bị này
+    const ownerUid             = localStorage.getItem('vocalearn_owner_uid');
+    const isFirstLoginOnDevice = !ownerUid;
     const localBelongsToOther  = ownerUid && ownerUid !== user.uid;
+    console.log('[VocaLearn] ownerUid:', ownerUid, '| isFirstLogin:', isFirstLoginOnDevice, '| belongsToOther:', localBelongsToOther);
 
-    if (localBelongsToOther) this._clearLocal();
+    if (localBelongsToOther) {
+      console.log('[VocaLearn] Khác tài khoản → _clearLocal()');
+      this._clearLocal();
+    }
     localStorage.setItem('vocalearn_owner_uid', user.uid);
 
     try {
       this._updateStatus('syncing');
 
-      // Dùng getDocFromServer() — tránh exists()=false sai từ cache khi chưa có IndexedDB
+      console.log('[VocaLearn] Đang getDocFromServer...');
       const snap = await getDocFromServer(ref);
+      console.log('[VocaLearn] snap.exists():', snap.exists());
 
       if (isFirstLoginOnDevice && !localBelongsToOther) {
-        // Lần đầu đăng nhập trên thiết bị này (bao gồm cả offline-first):
-        // Luôn ưu tiên data local — push lên Firebase
-        // Nếu Firebase đã có data (thiết bị khác), merge: giữ sets của cả 2
+        // Lần đầu đăng nhập trên thiết bị này (bao gồm offline-first)
+        // ƯU TIÊN ĐẨY DATA LOCAL LÊN, merge với server nếu cần
+        console.log('[VocaLearn] Lần đầu đăng nhập trên thiết bị này');
+        const localSets = Storage.getSets();
+        console.log('[VocaLearn] Local sets:', localSets.length, 'bộ');
+
         if (snap.exists()) {
           const serverData = snap.data();
           const serverSets = serverData.sets || [];
-          const localSets  = Storage.getSets();
+          console.log('[VocaLearn] Server đã có data. Server sets:', serverSets.length, '| Merge với local:', localSets.length);
 
-          // Merge: giữ tất cả sets, ưu tiên local nếu cùng id
           const localIds   = new Set(localSets.map(s => s.id));
           const mergedSets = [
             ...localSets,
             ...serverSets.filter(s => !localIds.has(s.id))
           ];
-
-          // Merge progress: kết hợp cả 2, local thắng khi trùng key
           const mergedProgress = Object.assign({}, serverData.progress || {}, Storage.getProgress());
 
-          // Ghi merged vào local trước
           localStorage.setItem('vocalearn_sets',     JSON.stringify(mergedSets));
           localStorage.setItem('vocalearn_progress', JSON.stringify(mergedProgress));
-
+          console.log('[VocaLearn] Sau merge: ', mergedSets.length, 'bộ thẻ');
           this._lastServerTs = serverData.updatedAt?.seconds;
+        } else {
+          console.log('[VocaLearn] Server chưa có document. Push local lên.');
         }
-        // Push (với data đã merge hoặc thuần local nếu chưa có trên server)
-        await this.push();
+
+        const pushOk = await this.push();
+        console.log('[VocaLearn] push() kết quả:', pushOk);
       } else if (!snap.exists()) {
-        // Thiết bị đã từng đăng nhập, tài khoản mới hoàn toàn chưa có document
+        console.log('[VocaLearn] Thiết bị đã từng login, document chưa có → push()');
         await this.push();
       } else {
-        // Thiết bị đã từng đăng nhập (ownerUid đã có), document tồn tại → pull về bình thường
+        console.log('[VocaLearn] Bình thường: pull data từ server về');
         const data = snap.data();
+        console.log('[VocaLearn] Server sets:', (data.sets || []).length, '| Server progress keys:', Object.keys(data.progress || {}).length);
         this._lastServerTs = data.updatedAt?.seconds;
         this._applyToLocal(data);
       }
@@ -204,9 +218,9 @@ const FirebaseSync = {
       this._updateStatus('synced');
       return true;
     } catch (e) {
-      console.error("Lỗi pull:", e);
+      console.error('[VocaLearn] Lỗi pull():', e.code, e.message);
       this._updateStatus('offline');
-      return true; // vẫn mở app được nhờ cache
+      return true;
     } finally {
       this._isPulling = false;
       setTimeout(() => this.startListening(), 100);
@@ -216,6 +230,7 @@ const FirebaseSync = {
   // ── Push: đẩy data local lên Firestore ───────────────────────────────────
   async push() {
     const ref = this._userDocRef();
+    console.log('[VocaLearn] push() gọi. ref:', !!ref, '| _isSyncing:', this._isSyncing, '| user:', auth.currentUser?.email);
     if (!ref || this._isSyncing) return false;
     this._isSyncing = true;
     try {
@@ -232,8 +247,10 @@ const FirebaseSync = {
         updatedAt:    serverTimestamp(),
         version:      3
       };
+      console.log('[VocaLearn] setDoc data đang push: sets=', data.sets?.length, '| progress keys=', Object.keys(data.progress||{}).length);
       await setDoc(ref, data, { merge: true });
-      this._lastServerTs = null; // reset để listener nhận lại đúng
+      this._lastServerTs = null;
+      console.log('[VocaLearn] push() thành công!'); // reset để listener nhận lại đúng
       this._updateStatus('synced');
       return true;
     } catch (e) {
