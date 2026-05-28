@@ -60,7 +60,9 @@ const FirebaseSync = {
   _isPulling:        false,
   _unsubSnapshot:    null,
   _lastServerData:   null,
+  _lastServerTs:     null,
   _needsPushOnLogin: false, // flag: lần đầu đăng nhập trên thiết bị → phải push local lên
+  _isOnline:         navigator.onLine,
 
   _userDocRef() {
     const user = auth.currentUser;
@@ -111,6 +113,10 @@ const FirebaseSync = {
       if (this._isPulling) return;
       if (!snap.exists()) return;
 
+      // Bỏ qua data từ cache local khi đang online
+      // (tránh áp dữ liệu cũ từ IndexedDB lên sau khi đã pull xong)
+      if (snap.metadata.fromCache && this._isOnline) return;
+
       // Chỉ xử lý data đến từ server thật (không phải write pending của mình)
       if (snap.metadata.hasPendingWrites) return;
 
@@ -118,7 +124,7 @@ const FirebaseSync = {
 
       // So sánh updatedAt để tránh áp lại đúng data mình vừa push
       const newTs = data.updatedAt?.seconds;
-      if (this._lastServerTs && newTs === this._lastServerTs) return;
+      if (this._lastServerTs && newTs && newTs <= this._lastServerTs) return;
       this._lastServerTs = newTs;
 
       this._applyToLocal(data);
@@ -237,7 +243,8 @@ const FirebaseSync = {
         version:      3
       };
       await setDoc(ref, data, { merge: true });
-      this._lastServerTs = null; // reset để listener nhận lại đúng
+      // KHÔNG reset _lastServerTs về null — listener sẽ so sánh đúng timestamp từ server
+      // để tránh áp lại data mình vừa push (gây hiển thị dữ liệu cũ)
       this._updateStatus('synced');
       return true;
     } catch (e) {
@@ -252,7 +259,9 @@ const FirebaseSync = {
   // ── Debounce push sau mỗi thay đổi ───────────────────────────────────────
   triggerSave() {
     if (!auth.currentUser) return;
-    this._updateStatus('pending');
+    // Khi offline, Firestore SDK tự giữ write trong queue → vẫn gọi push()
+    // SDK sẽ tự thực thi khi có lại mạng
+    this._updateStatus(this._isOnline ? 'pending' : 'offline');
     clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => this.push(), 2000);
   },
@@ -290,6 +299,31 @@ Storage.saveProgress = (v) => { _origSaveProgress(v); FirebaseSync.triggerSave()
 Storage.saveStats    = (v) => { _origSaveStats(v);    FirebaseSync.triggerSave(); };
 Storage.saveStreak   = (v) => { _origSaveStreak(v);   FirebaseSync.triggerSave(); };
 Trash._save          = (v) => { _origTrashSave(v);    FirebaseSync.triggerSave(); };
+
+// ===== NETWORK RECONNECT: auto pull + restart listener khi có lại mạng =====
+window.addEventListener('online', async () => {
+  console.log('[VocaLearn] Network online — đồng bộ lại...');
+  FirebaseSync._isOnline = true;
+  FirebaseSync._updateStatus('syncing');
+
+  if (!auth.currentUser) return;
+
+  // Pull data mới nhất từ server, sau đó startListening() sẽ được gọi bên trong pull()
+  const ok = await FirebaseSync.pull();
+  if (ok) {
+    if (typeof renderHome       === 'function') renderHome();
+    if (typeof updateStreak     === 'function') updateStreak();
+    if (typeof updateTrashBadge === 'function') updateTrashBadge();
+  }
+});
+
+window.addEventListener('offline', () => {
+  console.log('[VocaLearn] Network offline.');
+  FirebaseSync._isOnline = false;
+  FirebaseSync._updateStatus('offline');
+  // Không stopListening() — Firestore SDK tự xử lý offline queue
+  // Listener sẽ tự reconnect khi online trở lại
+});
 
 // Gọi setupFirebaseUI sau khi DOM sẵn sàng
 if (document.readyState === 'loading') {
