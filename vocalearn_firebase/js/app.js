@@ -3525,14 +3525,18 @@ function setupFirebaseUI() {
   const note      = document.getElementById('autosaveNote');
   if (!btnLogin) return;
 
+  const btnSync   = document.getElementById('btnFirebaseSync');
+
   function updateUI(user) {
     if (user) {
       btnLogin.style.display  = 'none';
       btnLogout.style.display = '';
+      btnSync.style.display   = '';
       note.textContent = '✔ Đăng nhập: ' + (user.displayName || user.email);
     } else {
       btnLogin.style.display  = '';
       btnLogout.style.display = 'none';
+      btnSync.style.display   = 'none';
       note.textContent = 'Đồng bộ dữ liệu trên mọi thiết bị';
       const el = document.getElementById('autosaveStatus');
       if (el) { el.innerHTML = '<span>☁️</span><span>Chưa đăng nhập</span>'; el.className = 'autosave-status'; }
@@ -3554,7 +3558,7 @@ function setupFirebaseUI() {
         renderHome();
         updateStreak();
         updateTrashBadge();
-        showNotif('✅ Đã đồng bộ dữ liệu từ Firebase!', '☁️');
+        // Không hiện thông báo — real-time sync tự động cập nhật UI
       }
     } else {
       FirebaseSync.stopListening();
@@ -3585,6 +3589,26 @@ function setupFirebaseUI() {
     // Hiện màn hình đăng nhập (dữ liệu local GIỮ NGUYÊN)
     if (typeof showLoginScreen === 'function') showLoginScreen();
   });
+
+  // Nút đồng bộ thủ công
+  if (btnSync) {
+    btnSync.addEventListener('click', async () => {
+      btnSync.disabled = true;
+      btnSync.textContent = '⏳';
+      const ok = await FirebaseSync.pull();
+      if (ok) {
+        renderHome();
+        updateStreak();
+        updateTrashBadge();
+        if (typeof renderSetsPage === 'function') {
+          const pageSets = document.getElementById('page-sets');
+          if (pageSets && pageSets.classList.contains('active')) renderSetsPage();
+        }
+      }
+      btnSync.disabled = false;
+      btnSync.textContent = '🔄 Sync';
+    });
+  }
 }
 
 // ===== TRASH PAGE =====
