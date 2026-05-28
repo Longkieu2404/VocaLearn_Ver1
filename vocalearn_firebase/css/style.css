@@ -1602,7 +1602,22 @@ body {
 /* Responsive: mobile stack thành 1 cột, không cần cân bằng */
 @media (max-width: 768px) {
   .stats-card-progress { height: auto; max-height: none; }
-  .stats-card-history  { height: auto; max-height: none; }
+  .stats-card-history  {
+    height: auto;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Đặt chiều cao cố định cho barChart trên mobile */
+  #barChart {
+    height: 180px;
+    min-height: 180px;
+    flex: none;
+  }
+  /* Đảm bảo bar-chart-7 lấp đầy chiều cao */
+  .bar-chart-7 {
+    height: 100% !important;
+  }
 }
 
 /* ---- QUIZ MODE MODAL ---- */
