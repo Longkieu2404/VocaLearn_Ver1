@@ -16,7 +16,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  doc, getDoc, setDoc, onSnapshot, serverTimestamp
+  doc, getDoc, getDocFromServer, setDoc, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const app  = initializeApp(FIREBASE_CONFIG);
@@ -160,11 +160,15 @@ const FirebaseSync = {
 
     try {
       this._updateStatus('syncing');
-      const snap = await getDoc(ref);
+
+      // QUAN TRỌNG: Dùng getDocFromServer() thay getDoc()
+      // getDoc() có thể trả về exists()=false từ cache khi cache trống (thiết bị mới /
+      // private browsing / clear storage) — dẫn đến push() data rỗng lên, XÓA sạch Firebase.
+      const snap = await getDocFromServer(ref);
 
       if (!snap.exists()) {
         if (localBelongsToOther) {
-          // Tài khoản mới, local vừa xóa → tạo document trống
+          // Tài khoản này chưa có data trên Firebase, local vừa xóa → tạo document trống
           await setDoc(ref, {
             sets: [], progress: {}, stats: { daily: {}, sessions: [] },
             streak: { count: 0, lastDate: null }, trash: [],
@@ -172,10 +176,12 @@ const FirebaseSync = {
             updatedAt: serverTimestamp(), version: 3
           });
         } else {
-          // Tài khoản mới, local là của họ → push lên
+          // Tài khoản chưa có Firebase document, local là của họ → push lên
+          // (chỉ chạy khi đã xác nhận từ server, không phải từ cache)
           await this.push();
         }
       } else {
+        // Document tồn tại trên server → luôn ưu tiên data server hơn local
         const data = snap.data();
         this._lastServerTs = data.updatedAt?.seconds;
         this._applyToLocal(data);
@@ -186,11 +192,11 @@ const FirebaseSync = {
     } catch (e) {
       console.error("Lỗi pull:", e);
       this._updateStatus('offline');
-      return true; // vẫn mở app được nhờ cache
+      // Không push() khi lỗi — rủi ro xóa data server nếu lỗi xảy ra sau _clearLocal()
+      return true; // vẫn mở app được nhờ cache IndexedDB
     } finally {
       this._isPulling = false;
-      // Khởi động listener sau 1 tick — đảm bảo _isPulling đã false và
-      // snapshot cache IndexedDB không ghi đè data vừa pull về
+      // Khởi động listener sau 1 tick — snapshot cache không ghi đè data vừa pull
       setTimeout(() => this.startListening(), 100);
     }
   },
