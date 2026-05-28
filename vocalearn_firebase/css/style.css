@@ -551,7 +551,7 @@ body {
 #barChart {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .progress-ring-item { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 .ring-label { width: 160px; min-width: 160px; font-size: 0.85rem; color: var(--text2); flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1605,18 +1605,33 @@ body {
   .stats-card-history  {
     height: auto;
     max-height: none;
+    overflow: visible;
     display: flex;
     flex-direction: column;
   }
   /* Đặt chiều cao cố định cho barChart trên mobile */
   #barChart {
-    height: 180px;
-    min-height: 180px;
+    height: 220px;
+    min-height: 220px;
     flex: none;
+    overflow: visible;
   }
-  /* Đảm bảo bar-chart-7 lấp đầy chiều cao */
+  /* Đảm bảo bar-chart-7 lấp đầy chiều cao và không bị cắt */
   .bar-chart-7 {
     height: 100% !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+  }
+  /* Đảm bảo cột bc7-col đủ chỗ cho label bên dưới */
+  .bc7-col {
+    overflow: visible;
+  }
+  .bc7-label {
+    white-space: nowrap;
+    font-size: 0.68rem;
+  }
+  .bc7-num {
+    font-size: 0.65rem;
   }
 }
 
