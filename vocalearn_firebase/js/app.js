@@ -98,6 +98,14 @@ function setupLoginScreen() {
     return;
   }
 
+  // Nếu đã đăng nhập Google trước đó → ẩn ngay, không flash
+  // firebase.js sẽ xác nhận session và pull data sau
+  if (localStorage.getItem('vocalearn_auth_mode') === 'google') {
+    screen.classList.add('hide');
+    setTimeout(() => screen.remove(), 400);
+    return;
+  }
+
   // Nút offline
   const btnOffline = document.getElementById('btnLoginOffline');
   if (btnOffline) {
@@ -3549,8 +3557,7 @@ function setupFirebaseUI() {
     if (user) {
       localStorage.setItem('vocalearn_auth_mode', 'google');
 
-      // pull() kéo data từ Firestore về (hoặc push lên nếu lần đầu)
-      // Sau khi pull() hoàn tất mới render UI và ẩn màn login
+      // pull() kéo data từ Firestore về trước, sau đó mới render UI và ẩn login
       const ok = await FirebaseSync.pull();
       if (ok) {
         // Ẩn màn hình đăng nhập SAU KHI data đã được apply vào localStorage

@@ -147,7 +147,7 @@ const FirebaseSync = {
     const user = auth.currentUser;
     if (!ref || !user) return false;
 
-    // Dừng listener cũ trước khi pull để tránh race condition với cache snapshot
+    // Dừng listener cũ ngay — tránh snapshot cache từ IndexedDB can thiệp trong lúc pull
     this.stopListening();
     this._isPulling = true;
 
@@ -158,7 +158,6 @@ const FirebaseSync = {
     if (localBelongsToOther) this._clearLocal();
     localStorage.setItem('vocalearn_owner_uid', user.uid);
 
-    let success = false;
     try {
       this._updateStatus('syncing');
       const snap = await getDoc(ref);
@@ -183,21 +182,16 @@ const FirebaseSync = {
       }
 
       this._updateStatus('synced');
-      success = true;
       return true;
     } catch (e) {
       console.error("Lỗi pull:", e);
       this._updateStatus('offline');
-      success = true; // vẫn mở app được nhờ cache
-      return true;
+      return true; // vẫn mở app được nhờ cache
     } finally {
-      // Phải set _isPulling = false TRƯỚC khi startListening
-      // để listener không bị block ngay lúc khởi tạo
       this._isPulling = false;
-      if (success) {
-        // Delay nhỏ để tránh snapshot cache từ IndexedDB ghi đè data vừa pull
-        setTimeout(() => this.startListening(), 300);
-      }
+      // Khởi động listener sau 1 tick — đảm bảo _isPulling đã false và
+      // snapshot cache IndexedDB không ghi đè data vừa pull về
+      setTimeout(() => this.startListening(), 100);
     }
   },
 
