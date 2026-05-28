@@ -1602,37 +1602,59 @@ body {
 /* Responsive: mobile stack thành 1 cột, không cần cân bằng */
 @media (max-width: 768px) {
   .stats-card-progress { height: auto; max-height: none; }
-  .stats-card-history  {
+
+  .stats-card-history {
     height: auto;
     max-height: none;
-    overflow: visible;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding-bottom: 2rem; /* chừa chỗ cho label ngày */
+    /* padding-bottom đủ để label + meta text nằm trong card */
+    padding-bottom: 1.25rem;
   }
-  /* Đặt chiều cao cố định cho barChart trên mobile */
+
+  /* barChart chiếm đúng 240px — đủ chỗ cho cột + số + label */
   #barChart {
-    height: 200px;
-    min-height: 200px;
-    flex: none;
-    overflow: visible;
+    height: 240px !important;
+    min-height: 240px !important;
+    max-height: 240px !important;
+    flex: none !important;
+    overflow: hidden;
   }
-  /* Đảm bảo bar-chart-7 lấp đầy chiều cao và không bị cắt */
+
   .bar-chart-7 {
     height: 100% !important;
-    overflow: visible !important;
-    padding-bottom: 0 !important;
+    overflow: hidden !important;
   }
-  /* Đảm bảo cột bc7-col đủ chỗ cho label bên dưới */
+
+  /* bc7-col layout: số trên → bar giãn → label cố định dưới */
   .bc7-col {
-    overflow: visible;
+    height: 100%;
+    overflow: hidden;
   }
+
+  /* Label chiều cao cố định để không bị cắt */
   .bc7-label {
-    white-space: nowrap;
+    flex-shrink: 0;
+    height: 1.2rem;
+    line-height: 1.2rem;
     font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
   }
+
+  /* Số lượt — chiều cao cố định */
   .bc7-num {
+    flex-shrink: 0;
+    height: 1rem;
+    line-height: 1rem;
     font-size: 0.65rem;
+  }
+
+  /* bar-wrap lấp đầy phần còn lại */
+  .bc7-bar-wrap {
+    flex: 1;
+    min-height: 0;
   }
 }
 
