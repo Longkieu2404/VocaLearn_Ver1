@@ -1883,6 +1883,8 @@ async function generateWithAI() {
   }
   // Lưu key để lần sau không phải nhập lại
   localStorage.setItem('vocalearn_gemini_key', apiKey);
+  // Đồng bộ key lên Firestore để dùng trên mọi thiết bị
+  if (window.FirebaseSync) FirebaseSync.triggerSave();
 
   // Show loading
   document.getElementById('aiLoading').style.display = 'flex';
@@ -2546,6 +2548,7 @@ function renderChatPage() {
     bar.innerHTML = '<span class="chat-apikey-icon">🔑</span><div class="chat-key-saved-badge">✅ Gemini API Key đã được lưu</div><button class="btn-ghost" id="chatApiKeyResetBtn" style="font-size:0.8rem;padding:0.3rem 0.6rem">Đổi key</button>';
     document.getElementById('chatApiKeyResetBtn').onclick = () => {
       localStorage.removeItem('vocalearn_gemini_key');
+      if (window.FirebaseSync) FirebaseSync.triggerSave();
       renderChatPage();
     };
   } else {
@@ -2556,8 +2559,10 @@ function renderChatPage() {
         return;
       }
       localStorage.setItem('vocalearn_gemini_key', key);
+      // Đồng bộ key lên Firestore để dùng trên mọi thiết bị
+      if (window.FirebaseSync) FirebaseSync.triggerSave();
       renderChatPage();
-      showNotif('Đã lưu Gemini API Key thành công!', '✅');
+      showNotif('Đã lưu Gemini API Key thành công! Đang đồng bộ...', '✅');
     };
     document.getElementById('chatApiKeyInput').onkeydown = e => {
       if (e.key === 'Enter') document.getElementById('chatApiKeySaveBtn').click();

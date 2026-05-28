@@ -93,6 +93,7 @@ const FirebaseSync = {
       if (data.username)     localStorage.setItem('vocalearn_username', data.username);
       if (data.trash)        localStorage.setItem('vocalearn_trash', JSON.stringify(data.trash));
       if (data.chatSessions) localStorage.setItem('vocalearn_chat_sessions', JSON.stringify(data.chatSessions));
+      if (data.geminiKey)    localStorage.setItem('vocalearn_gemini_key', data.geminiKey);
 
       this._updateStatus('synced');
       return true;
@@ -119,6 +120,7 @@ const FirebaseSync = {
         trash:        Trash.getAll(),
         username:     localStorage.getItem('vocalearn_username') || '',
         chatSessions: JSON.parse(localStorage.getItem('vocalearn_chat_sessions') || '[]'),
+        geminiKey:    localStorage.getItem('vocalearn_gemini_key') || '',
         updatedAt:    serverTimestamp(),
         version:      2
       };
