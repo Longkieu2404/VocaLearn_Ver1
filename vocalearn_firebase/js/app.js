@@ -3547,18 +3547,17 @@ function setupFirebaseUI() {
   FirebaseAuth.onStateChange(async (user) => {
     updateUI(user);
     if (user) {
-      // Ẩn màn hình đăng nhập
-      if (typeof hideLoginScreen === 'function') hideLoginScreen();
       localStorage.setItem('vocalearn_auth_mode', 'google');
 
-      // pull() tự xử lý: kiểm tra owner UID, xóa data cũ nếu đổi tài khoản,
-      // sau đó kéo data từ Firestore về rồi bắt đầu real-time listener
+      // pull() kéo data từ Firestore về (hoặc push lên nếu lần đầu)
+      // Sau khi pull() hoàn tất mới render UI và ẩn màn login
       const ok = await FirebaseSync.pull();
       if (ok) {
+        // Ẩn màn hình đăng nhập SAU KHI data đã được apply vào localStorage
+        if (typeof hideLoginScreen === 'function') hideLoginScreen();
         renderHome();
         updateStreak();
         updateTrashBadge();
-        // Không hiện thông báo — real-time sync tự động cập nhật UI
       }
     } else {
       FirebaseSync.stopListening();
