@@ -1608,11 +1608,12 @@ body {
     overflow: visible;
     display: flex;
     flex-direction: column;
+    padding-bottom: 2rem; /* chừa chỗ cho label ngày */
   }
   /* Đặt chiều cao cố định cho barChart trên mobile */
   #barChart {
-    height: 220px;
-    min-height: 220px;
+    height: 200px;
+    min-height: 200px;
     flex: none;
     overflow: visible;
   }
