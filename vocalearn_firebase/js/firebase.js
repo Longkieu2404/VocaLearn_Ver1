@@ -151,9 +151,9 @@ const FirebaseSync = {
     this.stopListening();
     this._isPulling = true;
 
-    // Kiểm tra data local thuộc tài khoản nào
     const ownerUid            = localStorage.getItem('vocalearn_owner_uid');
-    const localBelongsToOther = ownerUid && ownerUid !== user.uid;
+    const isFirstLoginOnDevice = !ownerUid; // Chưa từng đăng nhập trên thiết bị này
+    const localBelongsToOther  = ownerUid && ownerUid !== user.uid;
 
     if (localBelongsToOther) this._clearLocal();
     localStorage.setItem('vocalearn_owner_uid', user.uid);
@@ -161,27 +161,41 @@ const FirebaseSync = {
     try {
       this._updateStatus('syncing');
 
-      // QUAN TRỌNG: Dùng getDocFromServer() thay getDoc()
-      // getDoc() có thể trả về exists()=false từ cache khi cache trống (thiết bị mới /
-      // private browsing / clear storage) — dẫn đến push() data rỗng lên, XÓA sạch Firebase.
+      // Dùng getDocFromServer() — tránh exists()=false sai từ cache khi chưa có IndexedDB
       const snap = await getDocFromServer(ref);
 
-      if (!snap.exists()) {
-        if (localBelongsToOther) {
-          // Tài khoản này chưa có data trên Firebase, local vừa xóa → tạo document trống
-          await setDoc(ref, {
-            sets: [], progress: {}, stats: { daily: {}, sessions: [] },
-            streak: { count: 0, lastDate: null }, trash: [],
-            username: '', chatSessions: [], geminiKey: '',
-            updatedAt: serverTimestamp(), version: 3
-          });
-        } else {
-          // Tài khoản chưa có Firebase document, local là của họ → push lên
-          // (chỉ chạy khi đã xác nhận từ server, không phải từ cache)
-          await this.push();
+      if (isFirstLoginOnDevice && !localBelongsToOther) {
+        // Lần đầu đăng nhập trên thiết bị này (bao gồm cả offline-first):
+        // Luôn ưu tiên data local — push lên Firebase
+        // Nếu Firebase đã có data (thiết bị khác), merge: giữ sets của cả 2
+        if (snap.exists()) {
+          const serverData = snap.data();
+          const serverSets = serverData.sets || [];
+          const localSets  = Storage.getSets();
+
+          // Merge: giữ tất cả sets, ưu tiên local nếu cùng id
+          const localIds   = new Set(localSets.map(s => s.id));
+          const mergedSets = [
+            ...localSets,
+            ...serverSets.filter(s => !localIds.has(s.id))
+          ];
+
+          // Merge progress: kết hợp cả 2, local thắng khi trùng key
+          const mergedProgress = Object.assign({}, serverData.progress || {}, Storage.getProgress());
+
+          // Ghi merged vào local trước
+          localStorage.setItem('vocalearn_sets',     JSON.stringify(mergedSets));
+          localStorage.setItem('vocalearn_progress', JSON.stringify(mergedProgress));
+
+          this._lastServerTs = serverData.updatedAt?.seconds;
         }
+        // Push (với data đã merge hoặc thuần local nếu chưa có trên server)
+        await this.push();
+      } else if (!snap.exists()) {
+        // Thiết bị đã từng đăng nhập, tài khoản mới hoàn toàn chưa có document
+        await this.push();
       } else {
-        // Document tồn tại trên server → luôn ưu tiên data server hơn local
+        // Thiết bị đã từng đăng nhập (ownerUid đã có), document tồn tại → pull về bình thường
         const data = snap.data();
         this._lastServerTs = data.updatedAt?.seconds;
         this._applyToLocal(data);
@@ -192,11 +206,9 @@ const FirebaseSync = {
     } catch (e) {
       console.error("Lỗi pull:", e);
       this._updateStatus('offline');
-      // Không push() khi lỗi — rủi ro xóa data server nếu lỗi xảy ra sau _clearLocal()
-      return true; // vẫn mở app được nhờ cache IndexedDB
+      return true; // vẫn mở app được nhờ cache
     } finally {
       this._isPulling = false;
-      // Khởi động listener sau 1 tick — snapshot cache không ghi đè data vừa pull
       setTimeout(() => this.startListening(), 100);
     }
   },
