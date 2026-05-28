@@ -74,7 +74,7 @@ initTheme();
 
 // ---- INIT ----
 document.addEventListener('DOMContentLoaded', () => {
-  checkStreakExpiry(); // Kiểm tra streak ngay khi mở app
+  checkStreakExpiry();
   setupNav();
   setupColorPicker();
   setupMobileMenu();
@@ -83,7 +83,101 @@ document.addEventListener('DOMContentLoaded', () => {
   updateStreak();
   setupAutoSaveUI();
   updateTrashBadge();
+  setupLoginScreen();
 });
+
+// ===== LOGIN SCREEN =====
+function setupLoginScreen() {
+  const screen = document.getElementById('loginScreen');
+  if (!screen) return;
+
+  // Nếu đã chọn offline trước đó → bỏ qua màn login
+  if (localStorage.getItem('vocalearn_auth_mode') === 'offline') {
+    screen.classList.add('hide');
+    setTimeout(() => screen.remove(), 400);
+    return;
+  }
+
+  // Nút offline
+  const btnOffline = document.getElementById('btnLoginOffline');
+  if (btnOffline) {
+    btnOffline.addEventListener('click', () => {
+      localStorage.setItem('vocalearn_auth_mode', 'offline');
+      hideLoginScreen();
+    });
+  }
+
+  // Nút Google (hook sau khi firebase.js export FirebaseAuth)
+  const btnGoogle = document.getElementById('btnLoginGoogle');
+  if (btnGoogle) {
+    btnGoogle.addEventListener('click', async () => {
+      if (!window.FirebaseAuth) return;
+      btnGoogle.disabled = true;
+      btnGoogle.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;height:20px;vertical-align:middle;margin-right:8px" /> ⏳ Đang đăng nhập...';
+      const user = await window.FirebaseAuth.signIn();
+      if (!user) {
+        btnGoogle.disabled = false;
+        btnGoogle.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;height:20px;vertical-align:middle;margin-right:8px" /> Đăng nhập bằng Google';
+        showNotif('Đăng nhập thất bại hoặc bị huỷ.', '❌');
+      }
+      // Nếu thành công, onAuthStateChanged trong firebase.js sẽ gọi hideLoginScreen()
+    });
+  }
+}
+
+function hideLoginScreen() {
+  const screen = document.getElementById('loginScreen');
+  if (!screen) return;
+  screen.classList.add('hide');
+  setTimeout(() => screen.remove(), 400);
+}
+
+function showLoginScreen() {
+  if (document.getElementById('loginScreen')) return;
+  const div = document.createElement('div');
+  div.id = 'loginScreen';
+  div.className = 'login-screen';
+  div.innerHTML = `
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="login-logo-icon">⚡</span>
+        <span class="login-logo-text">VocaLearn</span>
+      </div>
+      <p class="login-tagline">Học từ vựng thông minh — mọi lúc, mọi nơi</p>
+      <div class="login-divider"><span>Chào mừng bạn</span></div>
+      <button class="btn-login-google" id="btnLoginGoogle2">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+        Đăng nhập bằng Google
+      </button>
+      <div class="login-or"><span>hoặc</span></div>
+      <button class="btn-login-offline" id="btnLoginOffline2">
+        🖥️ Dùng offline (không đồng bộ)
+      </button>
+      <p class="login-note">
+        Đăng nhập để đồng bộ dữ liệu trên nhiều thiết bị.<br>
+        Dùng offline sẽ lưu dữ liệu trên máy này.
+      </p>
+    </div>`;
+  document.body.appendChild(div);
+
+  div.querySelector('#btnLoginOffline2').addEventListener('click', () => {
+    localStorage.setItem('vocalearn_auth_mode', 'offline');
+    hideLoginScreen();
+  });
+
+  const btnGoogle2 = div.querySelector('#btnLoginGoogle2');
+  btnGoogle2.addEventListener('click', async () => {
+    if (!window.FirebaseAuth) return;
+    btnGoogle2.disabled = true;
+    btnGoogle2.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;height:20px;vertical-align:middle;margin-right:8px" /> ⏳ Đang đăng nhập...';
+    const user = await window.FirebaseAuth.signIn();
+    if (!user) {
+      btnGoogle2.disabled = false;
+      btnGoogle2.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;height:20px;vertical-align:middle;margin-right:8px" /> Đăng nhập bằng Google';
+      showNotif('Đăng nhập thất bại hoặc bị huỷ.', '❌');
+    }
+  });
+}
 
 // ===== MODAL KẾT QUẢ CHUNG =====
 function showResultModal({ correct, wrong, wrongCards = [], onAgain, onHome, title = 'Kết quả kiểm tra' }) {
@@ -3449,6 +3543,9 @@ function setupFirebaseUI() {
   FirebaseAuth.onStateChange(async (user) => {
     updateUI(user);
     if (user) {
+      // Ẩn màn hình đăng nhập
+      if (typeof hideLoginScreen === 'function') hideLoginScreen();
+      localStorage.setItem('vocalearn_auth_mode', 'google');
       // Tải dữ liệu từ cloud về, sau đó render lại
       const ok = await FirebaseSync.pull();
       if (ok) {
@@ -3474,10 +3571,30 @@ function setupFirebaseUI() {
   });
 
   btnLogout.addEventListener('click', async () => {
-    const ok = await showConfirm('Đăng xuất khỏi tài khoản Google? Dữ liệu local vẫn được giữ.', '👋');
+    const ok = await showConfirm('Đăng xuất và chuyển sang tài khoản khác?', '👋');
     if (!ok) return;
     await FirebaseAuth.signOut();
-    showNotif('Đã đăng xuất. Dữ liệu được giữ local.', '👋');
+
+    // Xóa toàn bộ dữ liệu của tài khoản cũ trong localStorage
+    Storage.saveSets([]);
+    Storage.saveProgress({});
+    Storage.saveStats({});
+    Storage.saveStreak({});
+    localStorage.removeItem('vocalearn_trash');
+    localStorage.removeItem('vocalearn_username');
+    localStorage.removeItem('vocalearn_chat_sessions');
+    localStorage.removeItem('vocalearn_gemini_key');
+    localStorage.removeItem('vocalearn_gemini_models');
+    localStorage.removeItem('vocalearn_chart_tab');
+    localStorage.removeItem('vocalearn_auth_mode');
+
+    // Cập nhật lại UI
+    renderHome();
+    updateStreak();
+    updateTrashBadge();
+
+    // Hiện màn hình đăng nhập
+    if (typeof showLoginScreen === 'function') showLoginScreen();
   });
 }
 
