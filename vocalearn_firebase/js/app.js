@@ -3539,25 +3539,25 @@ function setupFirebaseUI() {
     }
   }
 
-  // Lắng nghe trạng thái đăng nhập
+  // ── Theo dõi trạng thái đăng nhập ─────────────────────────────────────────
   FirebaseAuth.onStateChange(async (user) => {
     updateUI(user);
     if (user) {
       // Ẩn màn hình đăng nhập
       if (typeof hideLoginScreen === 'function') hideLoginScreen();
       localStorage.setItem('vocalearn_auth_mode', 'google');
-      // Tải dữ liệu từ cloud về, sau đó render lại
+
+      // pull() tự xử lý: kiểm tra owner UID, xóa data cũ nếu đổi tài khoản,
+      // sau đó kéo data từ Firestore về rồi bắt đầu real-time listener
       const ok = await FirebaseSync.pull();
       if (ok) {
         renderHome();
         updateStreak();
         updateTrashBadge();
-        if (typeof renderSetsPage === 'function') {
-          const pageSets = document.getElementById('pageSets');
-          if (pageSets && pageSets.classList.contains('active')) renderSetsPage();
-        }
         showNotif('✅ Đã đồng bộ dữ liệu từ Firebase!', '☁️');
       }
+    } else {
+      FirebaseSync.stopListening();
     }
   });
 
@@ -3571,29 +3571,18 @@ function setupFirebaseUI() {
   });
 
   btnLogout.addEventListener('click', async () => {
-    const ok = await showConfirm('Đăng xuất và chuyển sang tài khoản khác?', '👋');
+    const ok = await showConfirm('Đăng xuất khỏi tài khoản Google?<br><small style="opacity:.7">Dữ liệu vẫn còn trên thiết bị này. Đăng nhập lại để đồng bộ tiếp.</small>', '👋');
     if (!ok) return;
+
+    // Dừng real-time listener trước khi sign out
+    FirebaseSync.stopListening();
+
     await FirebaseAuth.signOut();
 
-    // Xóa toàn bộ dữ liệu của tài khoản cũ trong localStorage
-    Storage.saveSets([]);
-    Storage.saveProgress({});
-    Storage.saveStats({});
-    Storage.saveStreak({});
-    localStorage.removeItem('vocalearn_trash');
-    localStorage.removeItem('vocalearn_username');
-    localStorage.removeItem('vocalearn_chat_sessions');
-    localStorage.removeItem('vocalearn_gemini_key');
-    localStorage.removeItem('vocalearn_gemini_models');
-    localStorage.removeItem('vocalearn_chart_tab');
+    // Xóa cờ auth_mode để màn hình login hiện lại
     localStorage.removeItem('vocalearn_auth_mode');
 
-    // Cập nhật lại UI
-    renderHome();
-    updateStreak();
-    updateTrashBadge();
-
-    // Hiện màn hình đăng nhập
+    // Hiện màn hình đăng nhập (dữ liệu local GIỮ NGUYÊN)
     if (typeof showLoginScreen === 'function') showLoginScreen();
   });
 }

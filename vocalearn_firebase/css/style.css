@@ -2129,6 +2129,7 @@ body {
 .autosave-status.autosave-ok  { color: var(--green); }
 .autosave-status.autosave-err { color: var(--accent); }
 .autosave-status.autosave-pending { color: var(--accent2); }
+.autosave-status.autosave-offline { color: var(--accent2); opacity: 0.8; }
 
 .autosave-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
