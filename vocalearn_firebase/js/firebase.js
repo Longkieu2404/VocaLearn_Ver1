@@ -74,6 +74,7 @@ const FirebaseAuth = {
 const FirebaseSync = {
   _saveTimer:      null,
   _isSyncing:      false,
+  _isPulling:      false,  // đang pull thủ công → listener không re-render
   _unsubSnapshot:  null,   // hàm hủy real-time listener
   _ignoreNext:     false,  // tránh vòng lặp write→listen→write
 
@@ -92,11 +93,13 @@ const FirebaseSync = {
     this._unsubSnapshot = onSnapshot(ref,
       { includeMetadataChanges: true },
       (snap) => {
-        // Bỏ qua nếu đang push (tự mình vừa ghi) hoặc không có dữ liệu
+        // Bỏ qua nếu đang pull thủ công (sẽ render sau khi pull xong)
+        if (this._isPulling) return;
+        // Bỏ qua echo từ lần push của chính mình
         if (this._ignoreNext) { this._ignoreNext = false; return; }
         if (!snap.exists()) return;
 
-        // Chỉ áp dụng khi dữ liệu đến từ server (không phải cache local)
+        // Chỉ áp dụng khi dữ liệu đến từ server (không phải pending local)
         const fromServer = !snap.metadata.hasPendingWrites;
         if (!fromServer) return;
 
@@ -104,10 +107,10 @@ const FirebaseSync = {
         this._applyToLocal(data);
         this._updateStatus('synced');
 
-        // Re-render UI
-        if (typeof renderHome         === 'function') renderHome();
-        if (typeof updateStreak       === 'function') updateStreak();
-        if (typeof updateTrashBadge   === 'function') updateTrashBadge();
+        // Re-render UI — chỉ chạy khi có thay đổi thật từ thiết bị khác
+        if (typeof renderHome       === 'function') renderHome();
+        if (typeof updateStreak     === 'function') updateStreak();
+        if (typeof updateTrashBadge === 'function') updateTrashBadge();
       },
       (err) => {
         // Mất mạng → Firestore tự dùng cache, listener tự resume khi có mạng lại
@@ -132,19 +135,15 @@ const FirebaseSync = {
 
   // ── Áp dữ liệu Firestore vào localStorage (không trigger push ngược lại) ─
   _applyToLocal(data) {
-    // Tạm thời bỏ qua các trigger từ Storage.save* để không push ngược lại
-    FirebaseSync._ignoreNext = true;
-
-    const origPatch = FirebaseSync._ignoreNext; // giữ flag
-    // Ghi thẳng vào localStorage không qua wrapper (tránh triggerSave)
-    if (data.sets)         localStorage.setItem('vocalearn_sets',          JSON.stringify(data.sets));
-    if (data.progress)     localStorage.setItem('vocalearn_progress',      JSON.stringify(data.progress));
-    if (data.stats)        localStorage.setItem('vocalearn_stats',         JSON.stringify(data.stats));
-    if (data.streak)       localStorage.setItem('vocalearn_streak',        JSON.stringify(data.streak));
-    if (data.username)     localStorage.setItem('vocalearn_username',      data.username);
-    if (data.trash)        localStorage.setItem('vocalearn_trash',         JSON.stringify(data.trash));
-    if (data.chatSessions) localStorage.setItem('vocalearn_chat_sessions', JSON.stringify(data.chatSessions));
-    if (data.geminiKey)    localStorage.setItem('vocalearn_gemini_key',    data.geminiKey);
+    // Ghi thẳng vào localStorage, KHÔNG qua wrapper Storage.save* để tránh triggerSave
+    if (data.sets !== undefined)    localStorage.setItem('vocalearn_sets',          JSON.stringify(data.sets));
+    if (data.progress !== undefined)localStorage.setItem('vocalearn_progress',      JSON.stringify(data.progress));
+    if (data.stats !== undefined)   localStorage.setItem('vocalearn_stats',         JSON.stringify(data.stats));
+    if (data.streak !== undefined)  localStorage.setItem('vocalearn_streak',        JSON.stringify(data.streak));
+    if (data.username)              localStorage.setItem('vocalearn_username',      data.username);
+    if (data.trash !== undefined)   localStorage.setItem('vocalearn_trash',         JSON.stringify(data.trash));
+    if (data.chatSessions !== undefined) localStorage.setItem('vocalearn_chat_sessions', JSON.stringify(data.chatSessions));
+    if (data.geminiKey)             localStorage.setItem('vocalearn_gemini_key',    data.geminiKey);
   },
 
   // ── Xóa toàn bộ dữ liệu local (dùng khi đổi tài khoản) ─────────────────
@@ -166,6 +165,8 @@ const FirebaseSync = {
     const user = auth.currentUser;
     if (!ref || !user) return false;
 
+    this._isPulling = true; // chặn listener re-render trong lúc pull
+
     // Kiểm tra xem local data thuộc tài khoản nào
     const ownerUid = localStorage.getItem('vocalearn_owner_uid');
     const localBelongsToOther = ownerUid && ownerUid !== user.uid;
@@ -182,9 +183,7 @@ const FirebaseSync = {
       this._updateStatus('syncing');
       const snap = await getDoc(ref);
       if (!snap.exists()) {
-        // Tài khoản này chưa có data trên Firestore
         if (localBelongsToOther) {
-          // Vừa xóa local → tạo document trống, không push rác lên
           await setDoc(ref, {
             sets: [], progress: {}, stats: { daily: {}, sessions: [] },
             streak: { count: 0, lastDate: null }, trash: [],
@@ -192,11 +191,9 @@ const FirebaseSync = {
             updatedAt: serverTimestamp(), version: 3
           });
         } else {
-          // Tài khoản mới hoàn toàn, local là của chính họ → push lên
           await this.push();
         }
       } else {
-        // Có data trên Firestore → kéo về (cloud là nguồn sự thật)
         this._applyToLocal(snap.data());
       }
 
@@ -208,6 +205,8 @@ const FirebaseSync = {
       this.startListening();
       this._updateStatus('offline');
       return true;
+    } finally {
+      this._isPulling = false; // mở lại listener sau khi pull xong
     }
   },
 
