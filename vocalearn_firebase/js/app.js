@@ -157,6 +157,8 @@ function setupNav() {
       navigateTo(page);
       // close mobile sidebar
       document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarBackdrop').classList.remove('show');
+      document.body.classList.remove('sidebar-open');
     });
   });
   document.getElementById('fabCreate').addEventListener('click', openCreateModal);
@@ -210,7 +212,14 @@ function navigateTo(page) {
 // ---- MOBILE MENU ----
 function setupMobileMenu() {
   document.getElementById('menuBtn').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('open');
+    const isOpen = document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarBackdrop').classList.toggle('show', isOpen);
+    document.body.classList.toggle('sidebar-open', isOpen);
+  });
+  document.getElementById('sidebarBackdrop').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+    document.body.classList.remove('sidebar-open');
   });
 }
 
