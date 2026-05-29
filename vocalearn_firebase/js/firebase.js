@@ -77,12 +77,23 @@ const FirebaseSync = {
     if (data.sets         !== undefined) localStorage.setItem('vocalearn_sets',           JSON.stringify(data.sets));
     if (data.progress     !== undefined) localStorage.setItem('vocalearn_progress',       JSON.stringify(data.progress));
     if (data.stats        !== undefined) {
-      // Merge stats.daily thay vì ghi đè: giữ lại dữ liệu local nếu mới hơn server
+      // Merge stats.daily VÀ stats.dailyCards: giữ lại dữ liệu local, không để server ghi đè
       try {
-        const localStats  = JSON.parse(localStorage.getItem('vocalearn_stats')) || { daily: {}, sessions: [] };
+        const localStats  = JSON.parse(localStorage.getItem('vocalearn_stats')) || { daily: {}, dailyCards: {}, sessions: [] };
         const serverStats = data.stats;
+        // Merge daily counts (local thắng nếu cùng ngày)
         const mergedDaily = Object.assign({}, serverStats.daily || {}, localStats.daily || {});
-        const mergedStats = { ...serverStats, daily: mergedDaily };
+        // Merge dailyCards (ID arrays): gộp union của cả 2 phía cho mỗi ngày
+        const mergedDailyCards = Object.assign({}, serverStats.dailyCards || {});
+        const localDailyCards = localStats.dailyCards || {};
+        Object.keys(localDailyCards).forEach(date => {
+          const srvIds = new Set(mergedDailyCards[date] || []);
+          (localDailyCards[date] || []).forEach(id => srvIds.add(id));
+          mergedDailyCards[date] = [...srvIds];
+          // Đảm bảo daily count khớp với số ID thực tế
+          mergedDaily[date] = mergedDailyCards[date].length;
+        });
+        const mergedStats = { ...serverStats, daily: mergedDaily, dailyCards: mergedDailyCards };
         localStorage.setItem('vocalearn_stats', JSON.stringify(mergedStats));
       } catch { localStorage.setItem('vocalearn_stats', JSON.stringify(data.stats)); }
     }
@@ -205,11 +216,19 @@ const FirebaseSync = {
           const locStreak = Storage.getStreak();
           const srvStreak = srv.streak || { count: 0, lastDate: null };
           const mergedStreak = (locStreak.count >= srvStreak.count) ? locStreak : srvStreak;
-          // Merge stats.daily: gộp dữ liệu cả 2 phía, local thắng nếu trùng ngày
+          // Merge stats.daily VÀ dailyCards: gộp dữ liệu cả 2 phía, local thắng nếu trùng ngày
           const locStats = Storage.getStats();
-          const srvStats = srv.stats || { daily: {}, sessions: [] };
+          const srvStats = srv.stats || { daily: {}, dailyCards: {}, sessions: [] };
           const mergedDaily = Object.assign({}, srvStats.daily || {}, locStats.daily || {});
-          const mergedStats = { ...srvStats, daily: mergedDaily };
+          const mergedDailyCards2 = Object.assign({}, srvStats.dailyCards || {});
+          const locDailyCards = locStats.dailyCards || {};
+          Object.keys(locDailyCards).forEach(date => {
+            const srvIds = new Set(mergedDailyCards2[date] || []);
+            (locDailyCards[date] || []).forEach(id => srvIds.add(id));
+            mergedDailyCards2[date] = [...srvIds];
+            mergedDaily[date] = mergedDailyCards2[date].length;
+          });
+          const mergedStats = { ...srvStats, daily: mergedDaily, dailyCards: mergedDailyCards2 };
 
           localStorage.setItem('vocalearn_sets',     JSON.stringify(merged));
           localStorage.setItem('vocalearn_progress', JSON.stringify(mergedProg));
