@@ -3600,7 +3600,7 @@ function setupFirebaseUI() {
   if (btnSync) {
     btnSync.addEventListener('click', async () => {
       btnSync.disabled = true;
-      btnSync.textContent = '⏳';
+      btnSync.innerHTML = '<span style="display:block;line-height:1">⏳</span><span style="display:block;font-size:0.7em;opacity:0"> </span>';
       const ok = await FirebaseSync.pull();
       if (ok) {
         renderHome();
@@ -3612,7 +3612,7 @@ function setupFirebaseUI() {
         }
       }
       btnSync.disabled = false;
-      btnSync.textContent = '🔄 Sync';
+      btnSync.innerHTML = '<span style="display:block;line-height:1">🔄</span><span style="display:block;font-size:0.7em">Sync</span>';
     });
   }
 }
