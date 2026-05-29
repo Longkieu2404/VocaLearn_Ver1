@@ -98,7 +98,7 @@ const FirebaseSync = {
       } catch { localStorage.setItem('vocalearn_stats', JSON.stringify(data.stats)); }
     }
     if (data.streak       !== undefined) {
-      // Merge streak: ưu tiên streak có lastDate gần nhất và count cao hơn
+      // Merge streak: so sánh lastDate, count, VÀ rebuild từ stats.daily để phục hồi streak bị mất
       try {
         const localStreak  = JSON.parse(localStorage.getItem('vocalearn_streak')) || { count: 0, lastDate: null };
         const serverStreak = data.streak;
@@ -106,9 +106,18 @@ const FirebaseSync = {
         const locDate = localStreak.lastDate || '';
         const srvDate = serverStreak.lastDate || '';
         let best;
-        if (locDate > srvDate) best = localStreak;         // local mới hơn
-        else if (srvDate > locDate) best = serverStreak;   // server mới hơn
-        else best = (localStreak.count >= serverStreak.count) ? localStreak : serverStreak; // cùng ngày → count lớn hơn
+        if (locDate > srvDate) best = localStreak;
+        else if (srvDate > locDate) best = serverStreak;
+        else best = (localStreak.count >= serverStreak.count) ? localStreak : serverStreak;
+        // Rebuild streak từ stats.daily để phục hồi trường hợp streak bị reset sai
+        const mergedStatsRaw = localStorage.getItem('vocalearn_stats');
+        if (mergedStatsRaw) {
+          try {
+            const daily = JSON.parse(mergedStatsRaw).daily || {};
+            const rebuilt = FirebaseSync._rebuildStreak(daily);
+            if (rebuilt.count > best.count) best = rebuilt;
+          } catch {}
+        }
         localStorage.setItem('vocalearn_streak', JSON.stringify(best));
       } catch { localStorage.setItem('vocalearn_streak', JSON.stringify(data.streak)); }
     }
@@ -136,6 +145,24 @@ const FirebaseSync = {
     if (typeof renderHome       === 'function') renderHome();
     if (typeof updateStreak     === 'function') updateStreak();
     if (typeof updateTrashBadge === 'function') updateTrashBadge();
+  },
+
+  // Rebuild streak bằng cách đếm ngày liên tiếp có dữ liệu trong stats.daily
+  _rebuildStreak(daily) {
+    const toStr = (d) => {
+      return d.getFullYear() + '-' +
+        String(d.getMonth()+1).padStart(2,'0') + '-' +
+        String(d.getDate()).padStart(2,'0');
+    };
+    // Thử đếm từ hôm nay
+    let d = new Date(); let count = 0;
+    while (daily[toStr(d)] > 0) { count++; d.setDate(d.getDate()-1); }
+    if (count > 0) return { count, lastDate: toStr(new Date()) };
+    // Nếu hôm nay chưa học, thử từ hôm qua (streak vẫn hợp lệ)
+    d = new Date(); d.setDate(d.getDate()-1);
+    while (daily[toStr(d)] > 0) { count++; d.setDate(d.getDate()-1); }
+    const lastDate = count > 0 ? toStr(new Date(Date.now() - 86400000)) : null;
+    return { count, lastDate };
   },
 
   // ── Lắng nghe real-time thay đổi từ Firestore ────────────────────────────
@@ -221,7 +248,15 @@ const FirebaseSync = {
           const mergedProg = Object.assign({}, srv.progress || {}, Storage.getProgress());
           const locStreak = Storage.getStreak();
           const srvStreak = srv.streak || { count: 0, lastDate: null };
-          const mergedStreak = (locStreak.count >= srvStreak.count) ? locStreak : srvStreak;
+          const locDate2 = locStreak.lastDate || '';
+          const srvDate2 = srvStreak.lastDate || '';
+          let mergedStreak;
+          if (locDate2 > srvDate2) mergedStreak = locStreak;
+          else if (srvDate2 > locDate2) mergedStreak = srvStreak;
+          else mergedStreak = (locStreak.count >= srvStreak.count) ? locStreak : srvStreak;
+          // Rebuild từ stats để phục hồi streak bị reset sai
+          const rebuiltOnLogin = FirebaseSync._rebuildStreak(mergedStats.daily || {});
+          if (rebuiltOnLogin.count > mergedStreak.count) mergedStreak = rebuiltOnLogin;
           // Merge stats.daily VÀ dailyCards: gộp dữ liệu cả 2 phía, local thắng nếu trùng ngày
           const locStats = Storage.getStats();
           const srvStats = srv.stats || { daily: {}, dailyCards: {}, sessions: [] };
