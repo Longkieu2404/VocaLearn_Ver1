@@ -2355,13 +2355,9 @@ function checkReviewAnswer(selected, card, container) {
   });
 
   const isCorrect = selected === card.meaning;
-  reviewResultMap[card.id] = isCorrect;
 
-  // Cập nhật SR
-  const prog = getProgress();
-  const cardData = prog[card.id] || SR.getDefaultCard(card.id);
-  prog[card.id] = SR.update(cardData, isCorrect ? 4 : 1);
-  Storage.saveProgress(prog);
+  // Ghi nhận kết quả để lưu hàng loạt khi kết thúc session (tránh nextReview bị cập nhật giữa chừng)
+  reviewResultMap[card.id] = isCorrect ? 4 : 1;
 
   if (isCorrect) {
     reviewCorrect++;
@@ -2394,6 +2390,17 @@ function nextReviewQuestion() {
 }
 
 function finishReview() {
+  // Lưu toàn bộ SR sau khi session kết thúc (tránh nextReview bị cập nhật giữa chừng gây mất thẻ)
+  const prog = getProgress();
+  reviewCards.forEach(card => {
+    const rating = reviewResultMap[card.id];
+    if (rating !== undefined) {
+      const cardData = prog[card.id] || SR.getDefaultCard(card.id);
+      prog[card.id] = SR.update(cardData, rating);
+    }
+  });
+  Storage.saveProgress(prog);
+
   Storage.recordStudyToday(reviewCards.map(c => c.id));
   updateStreak();
   const total = reviewCards.length;

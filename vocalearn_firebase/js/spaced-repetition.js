@@ -14,9 +14,11 @@ const SR = {
 
   update(cardData, rating) {
     let { interval, repetitions, easeFactor } = cardData;
+    // Giữ lại status cũ để không bao giờ tụt xuống 'new'
+    const prevStatus = cardData.status || 'new';
 
     if (rating < 3) {
-      // Failed — reset
+      // Failed — reset repetitions nhưng GIỮ interval ngắn để ôn lại sớm
       repetitions = 0;
       interval = 1;
     } else {
@@ -33,9 +35,14 @@ const SR = {
     tomorrow.setHours(0, 0, 0, 0);                    // reset về 0h hôm nay
     tomorrow.setDate(tomorrow.getDate() + interval);   // cộng thêm interval ngày
     const nextReview = tomorrow.getTime();
+
+    // Status chỉ tăng, không bao giờ tụt xuống 'new' sau khi đã học
     let status = 'new';
     if (repetitions >= 1) status = 'learning';
     if (repetitions >= 2 && rating >= 3) status = 'mastered';
+    // Nếu đang là learning/mastered mà trả lời sai → giữ ít nhất 'learning'
+    if (prevStatus === 'learning' && status === 'new') status = 'learning';
+    if (prevStatus === 'mastered' && status !== 'mastered') status = 'learning';
 
     return { ...cardData, interval, repetitions, easeFactor, nextReview, status };
   },
