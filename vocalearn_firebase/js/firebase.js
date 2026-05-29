@@ -76,8 +76,25 @@ const FirebaseSync = {
   _applyToLocal(data) {
     if (data.sets         !== undefined) localStorage.setItem('vocalearn_sets',           JSON.stringify(data.sets));
     if (data.progress     !== undefined) localStorage.setItem('vocalearn_progress',       JSON.stringify(data.progress));
-    if (data.stats        !== undefined) localStorage.setItem('vocalearn_stats',          JSON.stringify(data.stats));
-    if (data.streak       !== undefined) localStorage.setItem('vocalearn_streak',         JSON.stringify(data.streak));
+    if (data.stats        !== undefined) {
+      // Merge stats.daily thay vì ghi đè: giữ lại dữ liệu local nếu mới hơn server
+      try {
+        const localStats  = JSON.parse(localStorage.getItem('vocalearn_stats')) || { daily: {}, sessions: [] };
+        const serverStats = data.stats;
+        const mergedDaily = Object.assign({}, serverStats.daily || {}, localStats.daily || {});
+        const mergedStats = { ...serverStats, daily: mergedDaily };
+        localStorage.setItem('vocalearn_stats', JSON.stringify(mergedStats));
+      } catch { localStorage.setItem('vocalearn_stats', JSON.stringify(data.stats)); }
+    }
+    if (data.streak       !== undefined) {
+      // Giữ streak lớn hơn giữa local và server
+      try {
+        const localStreak  = JSON.parse(localStorage.getItem('vocalearn_streak')) || { count: 0, lastDate: null };
+        const serverStreak = data.streak;
+        const best = (localStreak.count >= serverStreak.count) ? localStreak : serverStreak;
+        localStorage.setItem('vocalearn_streak', JSON.stringify(best));
+      } catch { localStorage.setItem('vocalearn_streak', JSON.stringify(data.streak)); }
+    }
     if (data.username     !== undefined) localStorage.setItem('vocalearn_username',       data.username);
     if (data.trash        !== undefined) localStorage.setItem('vocalearn_trash',          JSON.stringify(data.trash));
     if (data.chatSessions !== undefined) localStorage.setItem('vocalearn_chat_sessions',  JSON.stringify(data.chatSessions));
@@ -188,10 +205,16 @@ const FirebaseSync = {
           const locStreak = Storage.getStreak();
           const srvStreak = srv.streak || { count: 0, lastDate: null };
           const mergedStreak = (locStreak.count >= srvStreak.count) ? locStreak : srvStreak;
+          // Merge stats.daily: gộp dữ liệu cả 2 phía, local thắng nếu trùng ngày
+          const locStats = Storage.getStats();
+          const srvStats = srv.stats || { daily: {}, sessions: [] };
+          const mergedDaily = Object.assign({}, srvStats.daily || {}, locStats.daily || {});
+          const mergedStats = { ...srvStats, daily: mergedDaily };
 
           localStorage.setItem('vocalearn_sets',     JSON.stringify(merged));
           localStorage.setItem('vocalearn_progress', JSON.stringify(mergedProg));
           localStorage.setItem('vocalearn_streak',   JSON.stringify(mergedStreak));
+          localStorage.setItem('vocalearn_stats',    JSON.stringify(mergedStats));
           this._lastServerTs = srv.updatedAt?.seconds;
         }
         await this.push();
