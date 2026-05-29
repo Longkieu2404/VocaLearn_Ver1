@@ -450,6 +450,10 @@ function checkStreakExpiry() {
 
   // Nếu lần học cuối không phải hôm nay hoặc hôm qua → đã bị ngắt
   if (streak.lastDate !== today && streak.lastDate !== yesterday) {
+    // Nếu đang dùng Firebase và data chưa load xong: KHÔNG reset ngay lập tức
+    // Firebase pull sẽ gọi lại hàm này sau khi data đúng đã được áp vào localStorage.
+    const isFirebaseMode = localStorage.getItem('vocalearn_auth_mode') === 'google';
+    if (isFirebaseMode && !window._firebaseDataLoaded) return;
     streak.count = 0;
     streak.lastDate = null;
     Storage.saveStreak(streak);
@@ -1730,12 +1734,7 @@ function checkMixedEssayAnswer() {
   input.style.borderColor = isCorrect ? 'var(--green)' : 'var(--pink)';
   input.style.background = isCorrect ? 'rgba(6,214,160,0.08)' : 'rgba(247,37,133,0.08)';
 
-  mixedResultMap[card.id] = isCorrect;
-
-  const prog = getProgress();
-  const cardData = prog[card.id] || SR.getDefaultCard(card.id);
-  prog[card.id] = SR.update(cardData, isCorrect ? 4 : 1);
-  Storage.saveProgress(prog);
+  mixedResultMap[card.id] = isCorrect ? 4 : 1;
 
   if (isCorrect) {
     mixedCorrect++;
@@ -1773,11 +1772,7 @@ function checkMixedAnswer(selected, card, container) {
   const isCorrect = selected === card.meaning;
   mixedResultMap[card.id] = isCorrect;
 
-  // Cập nhật SR progress
-  const prog = getProgress();
-  const cardData = prog[card.id] || SR.getDefaultCard(card.id);
-  prog[card.id] = SR.update(cardData, isCorrect ? 4 : 1);
-  Storage.saveProgress(prog);
+  mixedResultMap[card.id] = isCorrect ? 4 : 1;
 
   if (isCorrect) {
     mixedCorrect++;
@@ -1810,6 +1805,17 @@ function nextMixedQuestion() {
 }
 
 function finishMixedQuiz() {
+  // Lưu toàn bộ SR sau khi session kết thúc (batch save)
+  const prog = getProgress();
+  mixedQuizCards.forEach(card => {
+    const rating = mixedResultMap[card.id];
+    if (rating !== undefined) {
+      const cardData = prog[card.id] || SR.getDefaultCard(card.id);
+      prog[card.id] = SR.update(cardData, rating);
+    }
+  });
+  Storage.saveProgress(prog);
+
   Storage.recordStudyToday(mixedQuizCards.map(c => c.id));
   updateStreak();
   const total = mixedQuizCards.length;

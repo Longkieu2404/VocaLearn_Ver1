@@ -98,11 +98,17 @@ const FirebaseSync = {
       } catch { localStorage.setItem('vocalearn_stats', JSON.stringify(data.stats)); }
     }
     if (data.streak       !== undefined) {
-      // Giữ streak lớn hơn giữa local và server
+      // Merge streak: ưu tiên streak có lastDate gần nhất và count cao hơn
       try {
         const localStreak  = JSON.parse(localStorage.getItem('vocalearn_streak')) || { count: 0, lastDate: null };
         const serverStreak = data.streak;
-        const best = (localStreak.count >= serverStreak.count) ? localStreak : serverStreak;
+        // So sánh theo lastDate trước (ngày gần hơn = đáng tin hơn), rồi mới theo count
+        const locDate = localStreak.lastDate || '';
+        const srvDate = serverStreak.lastDate || '';
+        let best;
+        if (locDate > srvDate) best = localStreak;         // local mới hơn
+        else if (srvDate > locDate) best = serverStreak;   // server mới hơn
+        else best = (localStreak.count >= serverStreak.count) ? localStreak : serverStreak; // cùng ngày → count lớn hơn
         localStorage.setItem('vocalearn_streak', JSON.stringify(best));
       } catch { localStorage.setItem('vocalearn_streak', JSON.stringify(data.streak)); }
     }
@@ -258,6 +264,13 @@ const FirebaseSync = {
         this._applyToLocal(data);
       }
 
+      // Sau khi data Firebase đã load xong, kiểm tra streak expiry với data chính xác
+      if (typeof checkStreakExpiry === 'function') {
+        // Tạm thời cho phép reset (bỏ qua guard Firebase mode) bằng cách dùng flag
+        window._firebaseDataLoaded = true;
+        checkStreakExpiry();
+        window._firebaseDataLoaded = false;
+      }
       this._updateStatus('synced');
       return true;
     } catch (e) {
